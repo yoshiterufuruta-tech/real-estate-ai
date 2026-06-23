@@ -8,7 +8,7 @@ import re
 app = FastAPI()
 
 # 静的ファイル（index.html）を提供
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory="/static"), name="static")
 
 # DuckDB 接続
 con = duckdb.connect("land.duckdb")
