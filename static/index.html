@@ -59,8 +59,9 @@ async function loadDistricts() {
 
 async function predict() {
     const data = {
-        市区町村名: document.getElementById("city").value,
-        地区名: document.getElementById("district").value,
+        都道府県: document.getElementById("prefecture").value,
+        市区町村: document.getElementById("city").value,
+        地区: document.getElementById("district").value,
         面積: Number(document.getElementById("area").value),
         築年数: Number(document.getElementById("age").value),
         駅距離: Number(document.getElementById("station").value),
