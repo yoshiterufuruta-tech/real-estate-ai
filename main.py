@@ -38,9 +38,7 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# -------------------------
-# ユーティリティ関数
-# -------------------------
+# ユーティリティ
 def clean_number(x):
     try:
         return float(x)
@@ -48,9 +46,6 @@ def clean_number(x):
         return 0.0
 
 def normalize_payload(data: dict):
-    """
-    受信 JSON のキー名の違いを吸収して標準化した dict を返す
-    """
     prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
     city = data.get("市区町村") or data.get("市区町村名") or data.get("city") or ""
     district = data.get("地区") or data.get("地区名") or data.get("地域") or data.get("district") or ""
@@ -68,9 +63,6 @@ def normalize_payload(data: dict):
     }
 
 def convert_year_quarter(x):
-    """
-    "2024年第1四半期" のような文字列を分解して数値カラムを返す
-    """
     if not x or not isinstance(x, str):
         return {"年度_raw": x, "year": 0, "quarter": 0}
     m = re.search(r"(\d{4}).*第\s*?(\d)\s*四半期", x)
@@ -82,19 +74,13 @@ def convert_year_quarter(x):
     return {"年度_raw": x, "year": 0, "quarter": 0}
 
 def numeric_impute(df: pd.DataFrame):
-    """
-    数値列のみ SimpleImputer(strategy='mean') を適用する
-    """
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if num_cols:
         imputer = SimpleImputer(strategy="mean")
         df[num_cols] = imputer.fit_transform(df[num_cols])
     return df
 
-# -------------------------
 # 用途地域マップ（例）
-# 必要に応じて拡張してください
-# -------------------------
 tokyo_default = {
     "世田谷区": ("第一種低層住居専用地域", 50, 100),
     "渋谷区": ("商業地域", 80, 400),
@@ -114,9 +100,7 @@ shibuya_map = {
     "代々木": ("商業地域", 80, 400),
 }
 
-# -------------------------
-# ダミー予測（モデルが無い場合のフォールバック）
-# -------------------------
+# ダミー予測
 def dummy_predict(df: pd.DataFrame):
     base_unit = 200000
     factor_map = {
@@ -134,27 +118,20 @@ def dummy_predict(df: pd.DataFrame):
         results.append(price)
     return results
 
-# -------------------------
 # 予測ロジック（堅牢化済み）
-# -------------------------
 def predict_logic(data: dict):
     try:
-        # 1. 正規化
         payload = normalize_payload(data)
-
-        # 2. 年度を分解して数値カラムを作る
         yq = convert_year_quarter(payload["年度"])
         payload["年度_raw"] = yq["年度_raw"]
         payload["年度_year"] = yq["year"]
         payload["年度_quarter"] = yq["quarter"]
 
-        # 3. 地区一意化（市区町村_地区）
         city = payload["市区町村"]
         district = payload["地区"] or ""
         district_full = f"{city}_{district}" if district else city
         payload["地区_full"] = district_full
 
-        # 4. モデル入力用 DataFrame を明示的に作成
         model_input = {
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
@@ -171,7 +148,6 @@ def predict_logic(data: dict):
         }
         df = pd.DataFrame([model_input])
 
-        # 5. 型変換と数値補完（年度は既に数値化済み）
         df["面積"] = df["面積"].apply(clean_number)
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
@@ -181,7 +157,6 @@ def predict_logic(data: dict):
 
         df = numeric_impute(df)
 
-        # 6. 用途地域の決定
         prefecture = payload["都道府県"]
         if prefecture == "東京都":
             if city == "世田谷区" and (district in setagaya_map):
@@ -200,12 +175,11 @@ def predict_logic(data: dict):
         df["容積率"] = youseki
         df["地区"] = district_full
 
-        # 7. デバッグ出力（本番では logger に切替）
+        # デバッグ出力
         print("DEBUG model input df:", df.to_dict(orient="records"))
 
-        # 8. 予測
+        # 予測を必ず実行して結果を返す
         if model is not None:
-            # モデルの前処理とカラム順が学習時と一致することを必ず確認すること
             pred = model.predict(df)[0]
         else:
             pred = dummy_predict(df)[0]
@@ -224,6 +198,7 @@ def predict_logic(data: dict):
 async def predict_endpoint(request: Request):
     payload = await request.json()
     print("DEBUG received payload:", payload)
+    # 必ず predict_logic の戻り値を返す（入力をそのまま返さない）
     return predict_logic(payload)
 
 # ルートで静的ページを返す（開発用）
