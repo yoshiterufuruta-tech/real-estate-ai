@@ -59,29 +59,39 @@ def get_districts(city: str):
 
 @app.post("/predict")
 def predict(data: dict):
-    # 互換性のため複数キーをチェック
-    prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture")
-    city = data.get("市区町村") or data.get("市区町村名") or data.get("city")
-    district = data.get("地区") or data.get("地区名") or data.get("district")
+    # 互換キー対応
+    prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
+    city = data.get("市区町村") or data.get("市区町村名") or data.get("city") or ""
+    district = data.get("地区") or data.get("地区名") or data.get("district") or ""
 
-    # 地区が空なら空文字にしておく
-    city = city or ""
-    district = district or ""
-
-    # 市区町村と地区を結合して一意化（地名衝突対策）
+    # 一意化（地名衝突対策）
     district_full = f"{city}_{district}" if district else city
 
-    df = pd.DataFrame([data])
-    # 必要な前処理（既存の関数を使う）
-    df["年度"] = df.get("年度", "2024年第1四半期")
-    df["面積"] = clean_number(df.get("面積", 0))
-    df["駅距離"] = clean_number(df.get("駅距離", 0))
-    df["道路幅"] = clean_number(df.get("道路幅", 0))
+    # 明示的にモデル入力用の dict を作る
+    model_input = {
+        "年度": data.get("年度", "2024年第1四半期"),
+        "面積": data.get("面積", 0),
+        "駅距離": data.get("駅距離", 0),
+        "道路幅": data.get("道路幅", 0),
+        "都道府県": prefecture,
+        "市区町村": city,
+        "地区": district_full
+    }
 
-    # 用途地域決定ロジック（例）
+    df = pd.DataFrame([model_input])
+
+    # 前処理（既存関数を使う）
+    df["年度"] = df["年度"].apply(convert_year_quarter)
+    df["面積"] = df["面積"].apply(clean_number)
+    df["駅距離"] = df["駅距離"].apply(clean_number)
+    df["道路幅"] = df["道路幅"].apply(clean_number)
+
+    # 用途地域決定（例：東京都のロジックを使う）
     if prefecture == "東京都":
         if city == "世田谷区" and district in setagaya_map:
             youto, kenpei, youseki = setagaya_map[district]
+        elif city == "渋谷区" and district in shibuya_map:
+            youto, kenpei, youseki = shibuya_map[district]
         elif city in tokyo_default:
             youto, kenpei, youseki = tokyo_default[city]
         else:
@@ -92,8 +102,9 @@ def predict(data: dict):
     df["用途"] = youto
     df["建ぺい率"] = kenpei
     df["容積率"] = youseki
-    # 明示的に地区カラムを入れてモデルに渡す
-    df["地区"] = district_full
+
+    # デバッグ出力（本番では削除）
+    print("DEBUG model input df:", df.to_dict(orient="records"))
 
     pred = model.predict(df)[0]
     return {"predicted_price": pred}
