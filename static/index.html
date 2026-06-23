@@ -34,7 +34,7 @@
   </label>
 
   <label>地区
-    <select id="district">
+    <select id="district" name="地区">
       <option value="">（選択してください）</option>
       <option value="三宿">三宿</option>
       <option value="三軒茶屋">三軒茶屋</option>
@@ -124,7 +124,6 @@
       await predict();
     });
 
-    // 初期化
     document.getElementById("city").dispatchEvent(new Event('change'));
   </script>
 </body>
