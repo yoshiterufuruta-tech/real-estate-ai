@@ -1,1 +1,89 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>不動産価格AI推定</title>
+</head>
+<body>
+
+<h2>不動産価格 AI 推定</h2>
+
+都道府県:
+<select id="pref" onchange="loadCities()">
+  <option value="東京都">東京都</option>
+  <option value="愛知県">愛知県</option>
+  <option value="鹿児島県">鹿児島県</option>
+</select>
+
+<br><br>
+
+市区町村:
+<select id="city" onchange="loadDistricts()"></select>
+
+<br><br>
+
+地区:
+<select id="district"></select>
+
+<br><br>
+
+面積（㎡）: <input id="area" type="number"><br>
+築年数: <input id="age" type="number"><br>
+駅距離（分）: <input id="station" type="number"><br>
+道路幅（m）: <input id="road" type="number"><br>
+
+<button onclick="predict()">推定する</button>
+
+<h3 id="result"></h3>
+
+<script>
+async function loadCities() {
+    const pref = document.getElementById("pref").value;
+    const res = await fetch(`/cities?pref=${pref}`);
+    const cities = await res.json();
+
+    const citySel = document.getElementById("city");
+    citySel.innerHTML = "";
+    cities.forEach(c => citySel.innerHTML += `<option value="${c}">${c}</option>`);
+
+    loadDistricts();
+}
+
+async function loadDistricts() {
+    const city = document.getElementById("city").value;
+    const res = await fetch(`/districts?city=${city}`);
+    const districts = await res.json();
+
+    const distSel = document.getElementById("district");
+    distSel.innerHTML = "";
+    districts.forEach(d => distSel.innerHTML += `<option value="${d}">${d}</option>`);
+}
+
+async function predict() {
+    const data = {
+        市区町村名: document.getElementById("city").value,
+        地区名: document.getElementById("district").value,
+        面積: Number(document.getElementById("area").value),
+        築年数: Number(document.getElementById("age").value),
+        駅距離: Number(document.getElementById("station").value),
+        道路幅: Number(document.getElementById("road").value),
+        年度: "2024年第1四半期"
+    };
+
+    const res = await fetch("/predict", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    const json = await res.json();
+    document.getElementById("result").innerText =
+        `推定価格: ${json.predicted_price.toLocaleString()} 円`;
+}
+
+loadCities();
+</script>
+
+</body>
+</html>
