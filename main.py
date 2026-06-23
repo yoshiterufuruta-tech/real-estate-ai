@@ -1,17 +1,16 @@
 # main.py
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import traceback
 import os
-import joblib  # pip install joblib
-import json
+import joblib
 
 app = FastAPI()
 
-# CORS（開発用。必要に応じて origin を制限する）
+# CORS（開発用。必要に応じて制限）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +22,7 @@ app.add_middleware(
 # static 配下に index.html を置く想定
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- モデル読み込み（なければダミー） ---
+# モデル読み込み（model.pkl があれば読み込む）
 MODEL_PATH = "model.pkl"
 model = None
 if os.path.exists(MODEL_PATH):
@@ -36,9 +35,8 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# --- ユーティリティ（あなたの既存関数があれば置き換えてください） ---
+# --- ユーティリティ（必要に応じて実装を学習時に合わせてください） ---
 def convert_year_quarter(x):
-    # 例: "2024年第1四半期" -> 2024.0 + 0.0 など、実装は学習時に合わせる
     return x
 
 def clean_number(x):
@@ -47,7 +45,7 @@ def clean_number(x):
     except Exception:
         return 0.0
 
-# --- 東京都デフォルト・地区マップ（必要に応じて拡張してください） ---
+# --- 用途地域マップ（例。必要に応じて拡張） ---
 tokyo_default = {
     "世田谷区": ("第一種低層住居専用地域", 50, 100),
     "渋谷区": ("商業地域", 80, 400),
@@ -81,11 +79,9 @@ shibuya_map = {
     "広尾": ("第一種中高層住居専用地域", 60, 200),
 }
 
-# --- ダミー予測関数（モデルが無い場合のフォールバック） ---
+# --- ダミー予測（モデルが無い場合のフォールバック） ---
 def dummy_predict(df: pd.DataFrame):
-    # 単純に面積 * 単価（用途で変える）
-    base_unit = 200000  # 1㎡あたりの基準単価（仮）
-    # 用途ごとに倍率を変える（仮）
+    base_unit = 200000
     factor_map = {
         "第一種低層住居専用地域": 1.2,
         "第一種住居地域": 1.0,
@@ -101,13 +97,14 @@ def dummy_predict(df: pd.DataFrame):
         results.append(price)
     return results
 
-# --- predict 実装（堅牢化済み） ---
+# --- 予測ロジック（堅牢化済み） ---
 def predict_logic(data: dict):
     try:
-        # 互換キー対応
+        # 受信キーの互換対応
         prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
-        city = data.get("市区町村") or data.get("市区町村名") or data.get("city") or data.get("市区町村名") or ""
-        district = data.get("地区") or data.get("地区名") or data.get("district") or data.get("地区名") or ""
+        city = data.get("市区町村") or data.get("市区町村名") or data.get("市区町村名") or data.get("city") or ""
+        # 地区は複数キーをチェック（地域, 地区名, district など）
+        district = data.get("地区") or data.get("地区名") or data.get("地域") or data.get("district") or ""
 
         # 空値対策
         prefecture = prefecture or ""
@@ -117,16 +114,21 @@ def predict_logic(data: dict):
         # 地名衝突対策：市区町村を前置して一意化
         district_full = f"{city}_{district}" if district else city
 
-        # モデル入力用 DataFrame を明示的に作る（学習時のカラムに合わせて必要に応じて調整）
+        # モデルが期待するカラムを明示的に作成（学習時のカラム名に合わせて必要なら追加）
         model_input = {
             "年度": data.get("年度", "2024年第1四半期"),
             "面積": data.get("面積", 0),
+            "築年数": data.get("築年数", data.get("年数", 0)),
             "駅距離": data.get("駅距離", 0),
             "道路幅": data.get("道路幅", 0),
             "都道府県": prefecture,
             "市区町村": city,
-            "地区": district_full
+            # 学習時に '市区町村名' や '地域' を参照しているモデルがある場合に備えて両方用意
+            "市区町村名": city,
+            "地区": district_full,
+            "地域": data.get("地域") or data.get("地域名") or ""
         }
+
         df = pd.DataFrame([model_input])
 
         # 前処理
@@ -135,12 +137,11 @@ def predict_logic(data: dict):
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
 
-        # 用途地域の決定（東京都向けロジック）
+        # 用途地域の決定（東京都向け）
         if prefecture == "東京都":
-            # 注意：district は元の地区名（結合前）でマップ照合する
-            if city == "世田谷区" and district in setagaya_map:
+            if city == "世田谷区" and (district in setagaya_map):
                 youto, kenpei, youseki = setagaya_map[district]
-            elif city == "渋谷区" and district in shibuya_map:
+            elif city == "渋谷区" and (district in shibuya_map):
                 youto, kenpei, youseki = shibuya_map[district]
             elif city in tokyo_default:
                 youto, kenpei, youseki = tokyo_default[city]
@@ -149,6 +150,7 @@ def predict_logic(data: dict):
         else:
             youto, kenpei, youseki = ("住宅地", 60, 200)
 
+        # 欠けている用途関連を埋める
         df["用途"] = youto
         df["建ぺい率"] = kenpei
         df["容積率"] = youseki
@@ -156,12 +158,11 @@ def predict_logic(data: dict):
         # 明示的に地区カラムを入れてモデルに渡す
         df["地区"] = district_full
 
-        # デバッグ出力（本番では logger に切替）
+        # デバッグ出力（確認用）
         print("DEBUG model input df:", df.to_dict(orient="records"))
 
         # 予測
         if model is not None:
-            # モデルの入力カラム順や前処理が学習時と一致するように調整してください
             pred = model.predict(df)[0]
         else:
             pred = dummy_predict(df)[0]
@@ -169,16 +170,20 @@ def predict_logic(data: dict):
         return {"predicted_price": pred, "used": {"都道府県": prefecture, "市区町村": city, "地区": district_full, "用途": youto}}
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(status_code=500, content={
+            "error": "internal server error",
+            "message": str(e),
+            "received": data
+        })
 
-# --- エンドポイント ---
+# エンドポイント
 @app.post("/predict")
 async def predict_endpoint(request: Request):
     payload = await request.json()
-    print("DEBUG received payload:", payload)   # 一時的に追加して受信内容を確認
+    print("DEBUG received payload:", payload)   # デバッグ用ログ
     return predict_logic(payload)
 
-# --- ルートで静的ページを返す（開発用） ---
+# ルートで静的ページを返す（開発用）
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse("static/index.html")
