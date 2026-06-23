@@ -13,7 +13,6 @@ from sklearn.impute import SimpleImputer
 
 app = FastAPI()
 
-# CORS 開発用（本番では制限すること）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# static 配下に index.html を置く想定
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # モデル読み込み（model.pkl があれば読み込む）
@@ -80,7 +78,7 @@ def numeric_impute(df: pd.DataFrame):
         df[num_cols] = imputer.fit_transform(df[num_cols])
     return df
 
-# 用途地域マップ（例）
+# 用途地域マップ（必要に応じて拡張）
 tokyo_default = {
     "世田谷区": ("第一種低層住居専用地域", 50, 100),
     "渋谷区": ("商業地域", 80, 400),
@@ -88,19 +86,15 @@ tokyo_default = {
     "八王子市": ("第一種低層住居専用地域", 40, 80),
     "町田市": ("第一種低層住居専用地域", 50, 100),
 }
-
 setagaya_map = {
     "三宿": ("第一種低層住居専用地域", 50, 100),
     "三軒茶屋": ("商業地域", 80, 400),
-    "上北沢": ("第一種低層住居専用地域", 50, 100),
 }
-
 shibuya_map = {
     "神宮前": ("第一種住居地域", 60, 200),
     "代々木": ("商業地域", 80, 400),
 }
 
-# ダミー予測
 def dummy_predict(df: pd.DataFrame):
     base_unit = 200000
     factor_map = {
@@ -118,20 +112,24 @@ def dummy_predict(df: pd.DataFrame):
         results.append(price)
     return results
 
-# 予測ロジック（堅牢化済み）
 def predict_logic(data: dict):
     try:
+        # 1. 正規化
         payload = normalize_payload(data)
+
+        # 2. 年度を分解して数値カラムを作る（重要：年度を文字列のまま数値補完にかけない）
         yq = convert_year_quarter(payload["年度"])
         payload["年度_raw"] = yq["年度_raw"]
         payload["年度_year"] = yq["year"]
         payload["年度_quarter"] = yq["quarter"]
 
+        # 3. 地区一意化
         city = payload["市区町村"]
         district = payload["地区"] or ""
         district_full = f"{city}_{district}" if district else city
         payload["地区_full"] = district_full
 
+        # 4. モデル入力を明示的に作成（学習時のカラム名に合わせて必要なら追加）
         model_input = {
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
@@ -148,6 +146,7 @@ def predict_logic(data: dict):
         }
         df = pd.DataFrame([model_input])
 
+        # 5. 型変換と数値補完（年度は既に数値化済み）
         df["面積"] = df["面積"].apply(clean_number)
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
@@ -157,6 +156,7 @@ def predict_logic(data: dict):
 
         df = numeric_impute(df)
 
+        # 6. 用途地域の決定
         prefecture = payload["都道府県"]
         if prefecture == "東京都":
             if city == "世田谷区" and (district in setagaya_map):
@@ -175,10 +175,10 @@ def predict_logic(data: dict):
         df["容積率"] = youseki
         df["地区"] = district_full
 
-        # デバッグ出力
+        # 7. デバッグ出力（確認用）
         print("DEBUG model input df:", df.to_dict(orient="records"))
 
-        # 予測を必ず実行して結果を返す
+        # 8. 予測実行
         if model is not None:
             pred = model.predict(df)[0]
         else:
@@ -193,15 +193,18 @@ def predict_logic(data: dict):
             "received": data
         })
 
-# エンドポイント
 @app.post("/predict")
 async def predict_endpoint(request: Request):
     payload = await request.json()
     print("DEBUG received payload:", payload)
-    # 必ず predict_logic の戻り値を返す（入力をそのまま返さない）
-    return predict_logic(payload)
+    try:
+        result = predict_logic(payload)
+        print("DEBUG predict result:", result)
+        return result
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error":"internal server error","message":str(e),"received":payload})
 
-# ルートで静的ページを返す（開発用）
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse("static/index.html")
