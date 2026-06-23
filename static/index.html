@@ -8,9 +8,9 @@
   <style>
     body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "メイリオ", sans-serif; padding: 20px; }
     label { display:block; margin-top:10px; }
-    select, input { padding:6px; width:300px; }
+    select, input { padding:6px; width:320px; }
     button { margin-top:12px; padding:8px 12px; }
-    pre { background:#f6f8fa; padding:10px; }
+    pre { background:#f6f8fa; padding:10px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -35,7 +35,6 @@
 
   <label>地区
     <select id="district">
-      <!-- サンプル。実運用では市区町村選択に応じて動的に差し替える -->
       <option value="">（選択してください）</option>
       <option value="三宿">三宿</option>
       <option value="三軒茶屋">三軒茶屋</option>
@@ -60,7 +59,6 @@
   <pre id="result">ここに結果が表示されます</pre>
 
   <script>
-    // 簡易：市区町村に応じて地区を差し替える（必要なら拡張）
     const cityToDistricts = {
       "世田谷区": ["三宿","三軒茶屋","上北沢","上馬","北沢"],
       "渋谷区": ["神宮前","代々木","恵比寿","広尾"],
@@ -71,9 +69,7 @@
     document.getElementById("city").addEventListener("change", (e) => {
       const city = e.target.value;
       const sel = document.getElementById("district");
-      // 現在の選択を保持
       const current = sel.value;
-      // クリア
       sel.innerHTML = '<option value="">（選択してください）</option>';
       const list = cityToDistricts[city] || [];
       list.forEach(d => {
@@ -82,7 +78,6 @@
         opt.textContent = d;
         sel.appendChild(opt);
       });
-      // 既存の値があれば選択
       if (list.includes(current)) sel.value = current;
     });
 
@@ -126,11 +121,10 @@
     }
 
     document.getElementById("btnPredict").addEventListener("click", async () => {
-      // 非同期で地区リストが更新される場合はここで待つ（この例では不要）
       await predict();
     });
 
-    // 初期化：city の change をトリガーして地区を埋める
+    // 初期化
     document.getElementById("city").dispatchEvent(new Event('change'));
   </script>
 </body>
