@@ -59,60 +59,29 @@ def get_districts(city: str):
 
 @app.post("/predict")
 def predict(data: dict):
+    # 互換性のため複数キーをチェック
+    prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture")
+    city = data.get("市区町村") or data.get("市区町村名") or data.get("city")
+    district = data.get("地区") or data.get("地区名") or data.get("district")
+
+    # 地区が空なら空文字にしておく
+    city = city or ""
+    district = district or ""
+
+    # 市区町村と地区を結合して一意化（地名衝突対策）
+    district_full = f"{city}_{district}" if district else city
+
     df = pd.DataFrame([data])
+    # 必要な前処理（既存の関数を使う）
+    df["年度"] = df.get("年度", "2024年第1四半期")
+    df["面積"] = clean_number(df.get("面積", 0))
+    df["駅距離"] = clean_number(df.get("駅距離", 0))
+    df["道路幅"] = clean_number(df.get("道路幅", 0))
 
-    # 前処理
-    df["年度"] = df["年度"].apply(convert_year_quarter)
-    df["面積"] = df["面積"].apply(clean_number)
-    df["駅距離"] = df["駅距離"].apply(clean_number)
-    df["道路幅"] = df["道路幅"].apply(clean_number)
-
-    prefecture = data.get("都道府県")
-    city = data.get("市区町村")
-    district = data.get("地区")
-
-    # 東京23区＋市部のデフォルト用途地域
-    tokyo_default = {
-        "世田谷区": ("第一種低層住居専用地域", 50, 100),
-        "渋谷区": ("商業地域", 80, 400),
-        "港区": ("商業地域", 80, 600),
-        "新宿区": ("商業地域", 80, 600),
-        "杉並区": ("第一種低層住居専用地域", 50, 100),
-        "練馬区": ("第一種低層住居専用地域", 50, 100),
-        "足立区": ("第一種住居地域", 60, 200),
-        "江戸川区": ("第一種住居地域", 60, 200),
-        "八王子市": ("第一種低層住居専用地域", 40, 80),
-        "町田市": ("第一種低層住居専用地域", 50, 100),
-        "立川市": ("商業地域", 80, 400),
-        "武蔵野市": ("第一種中高層住居専用地域", 60, 200),
-        "三鷹市": ("第一種中高層住居専用地域", 60, 200),
-        "調布市": ("第一種住居地域", 60, 200),
-        "府中市": ("第一種住居地域", 60, 200),
-    }
-
-    # 世田谷区の地区マップ（例）
-    setagaya_map = {
-        "三宿": ("第一種低層住居専用地域", 50, 100),
-        "三軒茶屋": ("商業地域", 80, 400),
-        "上北沢": ("第一種低層住居専用地域", 50, 100),
-        "上馬": ("第一種中高層住居専用地域", 60, 200),
-        "北沢": ("第一種住居地域", 60, 200),
-    }
-
-    # 渋谷区の地区マップ（例）
-    shibuya_map = {
-        "神宮前": ("第一種住居地域", 60, 200),
-        "代々木": ("商業地域", 80, 400),
-        "恵比寿": ("商業地域", 80, 400),
-        "広尾": ("第一種中高層住居専用地域", 60, 200),
-    }
-
-    # 用途地域の決定
+    # 用途地域決定ロジック（例）
     if prefecture == "東京都":
         if city == "世田谷区" and district in setagaya_map:
             youto, kenpei, youseki = setagaya_map[district]
-        elif city == "渋谷区" and district in shibuya_map:
-            youto, kenpei, youseki = shibuya_map[district]
         elif city in tokyo_default:
             youto, kenpei, youseki = tokyo_default[city]
         else:
@@ -123,7 +92,8 @@ def predict(data: dict):
     df["用途"] = youto
     df["建ぺい率"] = kenpei
     df["容積率"] = youseki
-    df["地域"] = "住宅地"
+    # 明示的に地区カラムを入れてモデルに渡す
+    df["地区"] = district_full
 
     pred = model.predict(df)[0]
     return {"predicted_price": pred}
