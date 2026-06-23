@@ -67,15 +67,23 @@ def predict(data: dict):
     df["駅距離"] = df["駅距離"].apply(clean_number)
     df["道路幅"] = df["道路幅"].apply(clean_number)
 
-    # モデルが必要とするカラムを補完（デフォルト値）
-    if "建ぺい率" not in df:
-        df["建ぺい率"] = 60
-    if "容積率" not in df:
-        df["容積率"] = 200
-    if "用途" not in df:
-        df["用途"] = "住宅"
-    if "地域" not in df:
-        df["地域"] = "住宅地"
+    # 地区ごとの用途地域推定（例）
+    area_map = {
+        "三内": ("第一種低層住居専用地域", 50, 80),
+        "浪館": ("第一種住居地域", 60, 200),
+        "古川": ("商業地域", 80, 400),
+    }
+
+    chiiki = df["地区"].iloc[0]
+    if chiiki in area_map:
+        youto, kenpei, youseki = area_map[chiiki]
+    else:
+        youto, kenpei, youseki = ("住宅地", 60, 200)
+
+    df["用途"] = youto
+    df["建ぺい率"] = kenpei
+    df["容積率"] = youseki
+    df["地域"] = "住宅地"
 
     pred = model.predict(df)[0]
     return {"predicted_price": pred}
