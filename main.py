@@ -67,5 +67,15 @@ def predict(data: dict):
     df["駅距離"] = df["駅距離"].apply(clean_number)
     df["道路幅"] = df["道路幅"].apply(clean_number)
 
+    # モデルが必要とするカラムを補完（デフォルト値）
+    if "建ぺい率" not in df:
+        df["建ぺい率"] = 60
+    if "容積率" not in df:
+        df["容積率"] = 200
+    if "用途" not in df:
+        df["用途"] = "住宅"
+    if "地域" not in df:
+        df["地域"] = "住宅地"
+
     pred = model.predict(df)[0]
     return {"predicted_price": pred}
