@@ -7,10 +7,13 @@ import pandas as pd
 import traceback
 import os
 import joblib
+import re
+import numpy as np
+from sklearn.impute import SimpleImputer
 
 app = FastAPI()
 
-# CORS（開発用。必要に応じて制限）
+# CORS 開発用
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,17 +38,51 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# --- ユーティリティ（必要に応じて実装を学習時に合わせてください） ---
-def convert_year_quarter(x):
-    return x
-
+# ユーティリティ
 def clean_number(x):
     try:
         return float(x)
     except Exception:
         return 0.0
 
-# --- 用途地域マップ（例。必要に応じて拡張） ---
+def normalize_payload(data: dict):
+    prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
+    city = data.get("市区町村") or data.get("市区町村名") or data.get("city") or ""
+    district = data.get("地区") or data.get("地区名") or data.get("地域") or data.get("district") or ""
+    return {
+        "年度": data.get("年度", ""),
+        "面積": data.get("面積", 0),
+        "築年数": data.get("築年数", data.get("年数", 0)),
+        "駅距離": data.get("駅距離", 0),
+        "道路幅": data.get("道路幅", 0),
+        "都道府県": prefecture,
+        "市区町村": city,
+        "市区町村名": city,
+        "地区": district,
+        "地域": data.get("地域") or ""
+    }
+
+def convert_year_quarter(x):
+    if not x or not isinstance(x, str):
+        return {"年度_raw": x, "year": 0, "quarter": 0}
+    m = re.search(r"(\d{4}).*第\s*?(\d)\s*四半期", x)
+    if m:
+        year = int(m.group(1))
+        quarter = int(m.group(2))
+        return {"年度_raw": x, "year": year, "quarter": quarter}
+    m2 = re.search(r"(\d{4})", x)
+    if m2:
+        return {"年度_raw": x, "year": int(m2.group(1)), "quarter": 0}
+    return {"年度_raw": x, "year": 0, "quarter": 0}
+
+def numeric_impute(df: pd.DataFrame):
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if num_cols:
+        imputer = SimpleImputer(strategy="mean")
+        df[num_cols] = imputer.fit_transform(df[num_cols])
+    return df
+
+# 用途地域マップ（例）
 tokyo_default = {
     "世田谷区": ("第一種低層住居専用地域", 50, 100),
     "渋谷区": ("商業地域", 80, 400),
@@ -79,7 +116,7 @@ shibuya_map = {
     "広尾": ("第一種中高層住居専用地域", 60, 200),
 }
 
-# --- ダミー予測（モデルが無い場合のフォールバック） ---
+# ダミー予測
 def dummy_predict(df: pd.DataFrame):
     base_unit = 200000
     factor_map = {
@@ -97,47 +134,47 @@ def dummy_predict(df: pd.DataFrame):
         results.append(price)
     return results
 
-# --- 予測ロジック（堅牢化済み） ---
+# 予測ロジック
 def predict_logic(data: dict):
     try:
-        # 受信キーの互換対応
-        prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
-        city = data.get("市区町村") or data.get("市区町村名") or data.get("市区町村名") or data.get("city") or ""
-        # 地区は複数キーをチェック（地域, 地区名, district など）
-        district = data.get("地区") or data.get("地区名") or data.get("地域") or data.get("district") or ""
+        payload = normalize_payload(data)
+        yq = convert_year_quarter(payload["年度"])
+        payload["年度_raw"] = yq["年度_raw"]
+        payload["年度_year"] = yq["year"]
+        payload["年度_quarter"] = yq["quarter"]
 
-        # 空値対策
-        prefecture = prefecture or ""
-        city = city or ""
-        district = district or ""
-
-        # 地名衝突対策：市区町村を前置して一意化
+        city = payload["市区町村"]
+        district = payload["地区"] or ""
         district_full = f"{city}_{district}" if district else city
+        payload["地区_full"] = district_full
 
-        # モデルが期待するカラムを明示的に作成（学習時のカラム名に合わせて必要なら追加）
         model_input = {
-            "年度": data.get("年度", "2024年第1四半期"),
-            "面積": data.get("面積", 0),
-            "築年数": data.get("築年数", data.get("年数", 0)),
-            "駅距離": data.get("駅距離", 0),
-            "道路幅": data.get("道路幅", 0),
-            "都道府県": prefecture,
-            "市区町村": city,
-            # 学習時に '市区町村名' や '地域' を参照しているモデルがある場合に備えて両方用意
-            "市区町村名": city,
-            "地区": district_full,
-            "地域": data.get("地域") or data.get("地域名") or ""
+            "年度_raw": payload["年度_raw"],
+            "年度_year": payload["年度_year"],
+            "年度_quarter": payload["年度_quarter"],
+            "面積": payload["面積"],
+            "築年数": payload["築年数"],
+            "駅距離": payload["駅距離"],
+            "道路幅": payload["道路幅"],
+            "都道府県": payload["都道府県"],
+            "市区町村": payload["市区町村"],
+            "市区町村名": payload["市区町村名"],
+            "地区": payload["地区_full"],
+            "地域": payload.get("地域", "")
         }
 
         df = pd.DataFrame([model_input])
 
-        # 前処理
-        df["年度"] = df["年度"].apply(convert_year_quarter)
         df["面積"] = df["面積"].apply(clean_number)
+        df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
+        df["年度_year"] = df["年度_year"].apply(lambda v: int(v) if v is not None else 0)
+        df["年度_quarter"] = df["年度_quarter"].apply(lambda v: int(v) if v is not None else 0)
 
-        # 用途地域の決定（東京都向け）
+        df = numeric_impute(df)
+
+        prefecture = payload["都道府県"]
         if prefecture == "東京都":
             if city == "世田谷区" and (district in setagaya_map):
                 youto, kenpei, youseki = setagaya_map[district]
@@ -150,18 +187,13 @@ def predict_logic(data: dict):
         else:
             youto, kenpei, youseki = ("住宅地", 60, 200)
 
-        # 欠けている用途関連を埋める
         df["用途"] = youto
         df["建ぺい率"] = kenpei
         df["容積率"] = youseki
-
-        # 明示的に地区カラムを入れてモデルに渡す
         df["地区"] = district_full
 
-        # デバッグ出力（確認用）
         print("DEBUG model input df:", df.to_dict(orient="records"))
 
-        # 予測
         if model is not None:
             pred = model.predict(df)[0]
         else:
@@ -176,14 +208,12 @@ def predict_logic(data: dict):
             "received": data
         })
 
-# エンドポイント
 @app.post("/predict")
 async def predict_endpoint(request: Request):
     payload = await request.json()
-    print("DEBUG received payload:", payload)   # デバッグ用ログ
+    print("DEBUG received payload:", payload)
     return predict_logic(payload)
 
-# ルートで静的ページを返す（開発用）
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse("static/index.html")
