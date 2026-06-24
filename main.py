@@ -36,8 +36,7 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# MLIT API KEY
-MLIT_KEY = os.getenv("e55377256daf4f1bb616d8110fcca878")
+MLIT_KEY = os.getenv("MLIT_API_KEY")
 
 # -------------------------
 # Utility functions
@@ -64,7 +63,9 @@ def normalize_payload(data: dict):
         "市区町村": city,
         "市区町村名": city,
         "地区": district,
-        "地域": data.get("地域", "")
+        "地域": data.get("地域", ""),
+        "容積率": data.get("容積率", 0),
+        "建ぺい率": data.get("建ぺい率", 0),
     }
 
 def convert_year_quarter(x):
@@ -196,7 +197,7 @@ async def predict_endpoint(request: Request):
 @app.get("/mlit/trade")
 async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 20201, to_year: int = 20244):
     if MLIT_KEY is None:
-        return {"error": "MLIT_API_KEY is not set"}
+        return {"error": "MLIT_API_KEY is not set in Render environment variables"}
 
     base_url = "https://www.land.mlit.go.jp/webland/api/TradeList"
     params = {
