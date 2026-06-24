@@ -114,7 +114,6 @@ def predict_logic(data: dict):
     try:
         payload = normalize_payload(data)
 
-        # 年度処理
         yq = convert_year_quarter(payload["年度"])
         payload["年度_raw"] = yq["年度_raw"]
         payload["年度_year"] = yq["year"]
@@ -125,7 +124,6 @@ def predict_logic(data: dict):
         district_full = f"{city}_{district}" if district else city
         payload["地区_full"] = district_full
 
-        # モデル入力
         model_input = {
             "年度": payload["年度_raw"],
             "年度_raw": payload["年度_raw"],
@@ -144,19 +142,16 @@ def predict_logic(data: dict):
 
         df = pd.DataFrame([model_input])
 
-        # 数値変換
         df["面積"] = df["面積"].apply(clean_number)
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
 
-        # 年度（文字列）は numeric_impute の前に削除
         if "年度" in df.columns:
             df = df.drop(columns=["年度"])
 
         df = numeric_impute(df)
 
-        # 用途地域（簡易）
         prefecture = payload["都道府県"]
         if prefecture == "東京都":
             youto = "第一種住居地域"
@@ -165,7 +160,6 @@ def predict_logic(data: dict):
 
         df["用途"] = youto
 
-        # 予測
         if model is not None:
             pred = model.predict(df)[0]
         else:
