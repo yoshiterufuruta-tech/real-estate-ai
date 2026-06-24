@@ -127,6 +127,7 @@ def predict_logic(data: dict):
 
         # モデルに渡すカラム（年度は raw だけ）
         model_input = {
+            "年度": payload["年度"],
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
             "年度_quarter": payload["年度_quarter"],
