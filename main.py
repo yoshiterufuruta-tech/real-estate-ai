@@ -37,7 +37,7 @@ else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
 # MLIT API KEY
-MLIT_KEY = os.getenv("MLIT_API_KEY")
+MLIT_KEY = os.getenv("e55377256daf4f1bb616d8110fcca878")
 
 # -------------------------
 # Utility functions
