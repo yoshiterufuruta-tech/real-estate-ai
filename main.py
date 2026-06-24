@@ -152,9 +152,10 @@ def predict_logic(data: dict):
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
-        df["年度_year"] = df["年度_year"].apply(lambda v: int(v) if v is not None else 0)
-        df["年度_quarter"] = df["年度_quarter"].apply(lambda v: int(v) if v is not None else 0)
-
+    
+        if "年度" in df.columns:
+        df = df.drop(columns=["年度"])
+        
         df = numeric_impute(df)
 
         # 6. 用途地域の決定
