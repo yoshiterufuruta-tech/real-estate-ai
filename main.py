@@ -36,6 +36,7 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
+# MLIT API KEY
 MLIT_KEY = os.getenv("MLIT_API_KEY")
 
 # -------------------------
@@ -67,7 +68,6 @@ def normalize_payload(data: dict):
         "地区": district,
         "地域": data.get("地域", "")
     }
-
 
 def convert_year_quarter(x):
     if not x or not isinstance(x, str):
@@ -135,6 +135,8 @@ def predict_logic(data: dict):
             "築年数": payload["築年数"],
             "駅距離": payload["駅距離"],
             "道路幅": payload["道路幅"],
+            "容積率": payload["容積率"],
+            "建ぺい率": payload["建ぺい率"],
             "都道府県": payload["都道府県"],
             "市区町村": payload["市区町村"],
             "市区町村名": payload["市区町村名"],
@@ -148,6 +150,8 @@ def predict_logic(data: dict):
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
+        df["容積率"] = df["容積率"].apply(clean_number)
+        df["建ぺい率"] = df["建ぺい率"].apply(clean_number)
 
         df = numeric_impute(df)
 
@@ -168,11 +172,14 @@ def predict_logic(data: dict):
 
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={
-            "error": "internal server error",
-            "message": str(e),
-            "received": data
-        })
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal server error",
+                "message": str(e),
+                "received": data,
+            },
+        )
 
 # -------------------------
 # /predict endpoint
@@ -186,14 +193,23 @@ async def predict_endpoint(request: Request):
         return result
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": "internal server error", "message": str(e)})
+        return JSONResponse(
+            status_code=500,
+            content={"error": "internal server error", "message": str(e)},
+        )
 
 # -------------------------
 # MLIT API 統合
 # -------------------------
 
 @app.get("/mlit/trade")
-async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 20201, to_year: int = 20244):
+async def mlit_trade(
+    pref: str,
+    city: str,
+    district: str = "",
+    from_year: int = 20201,
+    to_year: int = 20244,
+):
     if MLIT_KEY is None:
         return {"error": "MLIT_API_KEY is not set in Render environment variables"}
 
@@ -202,7 +218,7 @@ async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 
         "from": from_year,
         "to": to_year,
         "area": pref,
-        "city": city
+        "city": city,
     }
     if district:
         params["district"] = district
@@ -212,3 +228,8 @@ async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 
     async with httpx.AsyncClient(timeout=20.0) as client:
         r = await client.get(base_url, params=params, headers=headers)
         return r.json()
+
+# 動作確認用ルート（任意）
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "real-estate-ai running"}
