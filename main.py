@@ -61,3 +61,12 @@ def normalize_payload(data: dict):
         "道路幅": data.get("道路幅", 0),
         "都道府県": prefecture,
         "市区町村": city,
+         }
+    if district:
+        params["district"] = district
+
+    headers = {"Ocp-Apim-Subscription-Key": MLIT_KEY}
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(base_url, params=params, headers=headers)
+        return r.json()
