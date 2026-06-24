@@ -131,6 +131,7 @@ def predict_logic(data: dict):
 
         # 4. モデル入力を明示的に作成（学習時のカラム名に合わせて必要なら追加）
         model_input = {
+            "年度": payload["年度_raw"],
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
             "年度_quarter": payload["年度_quarter"],
