@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +9,7 @@ import joblib
 import re
 import numpy as np
 from sklearn.impute import SimpleImputer
+import httpx
 
 app = FastAPI()
 
@@ -23,7 +23,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# モデル読み込み（model.pkl があれば読み込む）
+# モデル読み込み
 MODEL_PATH = "model.pkl"
 model = None
 if os.path.exists(MODEL_PATH):
@@ -36,7 +36,13 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# ユーティリティ
+# MLIT API KEY
+MLIT_KEY = os.getenv("MLIT_API_KEY")
+
+# -------------------------
+# Utility functions
+# -------------------------
+
 def clean_number(x):
     try:
         return float(x)
@@ -44,9 +50,9 @@ def clean_number(x):
         return 0.0
 
 def normalize_payload(data: dict):
-    prefecture = data.get("都道府県") or data.get("都道府県名") or data.get("prefecture") or ""
-    city = data.get("市区町村") or data.get("市区町村名") or data.get("city") or ""
-    district = data.get("地区") or data.get("地区名") or data.get("地域") or data.get("district") or ""
+    prefecture = data.get("都道府県") or data.get("prefecture") or ""
+    city = data.get("市区町村") or data.get("city") or ""
+    district = data.get("地区") or data.get("district") or ""
     return {
         "年度": data.get("年度", ""),
         "面積": data.get("面積", 0),
@@ -78,22 +84,9 @@ def numeric_impute(df: pd.DataFrame):
         df[num_cols] = imputer.fit_transform(df[num_cols])
     return df
 
-# 用途地域マップ（必要に応じて拡張）
-tokyo_default = {
-    "世田谷区": ("第一種低層住居専用地域", 50, 100),
-    "渋谷区": ("商業地域", 80, 400),
-    "港区": ("商業地域", 80, 600),
-    "八王子市": ("第一種低層住居専用地域", 40, 80),
-    "町田市": ("第一種低層住居専用地域", 50, 100),
-}
-setagaya_map = {
-    "三宿": ("第一種低層住居専用地域", 50, 100),
-    "三軒茶屋": ("商業地域", 80, 400),
-}
-shibuya_map = {
-    "神宮前": ("第一種住居地域", 60, 200),
-    "代々木": ("商業地域", 80, 400),
-}
+# -------------------------
+# Dummy predictor
+# -------------------------
 
 def dummy_predict(df: pd.DataFrame):
     base_unit = 200000
@@ -112,26 +105,28 @@ def dummy_predict(df: pd.DataFrame):
         results.append(price)
     return results
 
+# -------------------------
+# Prediction logic
+# -------------------------
+
 def predict_logic(data: dict):
     try:
-        # 1. 正規化
         payload = normalize_payload(data)
 
-        # 2. 年度を分解して数値カラムを作る（重要：年度を文字列のまま数値補完にかけない）
+        # 年度処理
         yq = convert_year_quarter(payload["年度"])
         payload["年度_raw"] = yq["年度_raw"]
         payload["年度_year"] = yq["year"]
         payload["年度_quarter"] = yq["quarter"]
 
-        # 3. 地区一意化
         city = payload["市区町村"]
         district = payload["地区"] or ""
         district_full = f"{city}_{district}" if district else city
         payload["地区_full"] = district_full
 
-        # 4. モデル入力を明示的に作成（学習時のカラム名に合わせて必要なら追加）
+        # モデル入力
         model_input = {
-            "年度": payload["年度_raw"],
+            "年度": payload["年度_raw"],  # ★ モデルが要求するカラム
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
             "年度_quarter": payload["年度_quarter"],
@@ -145,47 +140,38 @@ def predict_logic(data: dict):
             "地区": payload["地区_full"],
             "地域": payload.get("地域", "")
         }
+
         df = pd.DataFrame([model_input])
 
-        # 5. 型変換と数値補完（年度は既に数値化済み）
+        # 数値変換
         df["面積"] = df["面積"].apply(clean_number)
         df["築年数"] = df["築年数"].apply(clean_number)
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
-        df["年度_year"] = df["年度_year"].apply(lambda v: int(v) if v is not None else 0)
-        df["年度_quarter"] = df["年度_quarter"].apply(lambda v: int(v) if v is not None else 0)
+
+        # ★ 年度（文字列）は numeric_impute の前に削除
+        if "年度" in df.columns:
+            df = df.drop(columns=["年度"])
 
         df = numeric_impute(df)
 
-        # 6. 用途地域の決定
+        # 用途地域（簡易）
         prefecture = payload["都道府県"]
         if prefecture == "東京都":
-            if city == "世田谷区" and (district in setagaya_map):
-                youto, kenpei, youseki = setagaya_map[district]
-            elif city == "渋谷区" and (district in shibuya_map):
-                youto, kenpei, youseki = shibuya_map[district]
-            elif city in tokyo_default:
-                youto, kenpei, youseki = tokyo_default[city]
-            else:
-                youto, kenpei, youseki = ("第一種住居地域", 60, 200)
+            youto = "第一種住居地域"
         else:
-            youto, kenpei, youseki = ("住宅地", 60, 200)
+            youto = "住宅地"
 
         df["用途"] = youto
-        df["建ぺい率"] = kenpei
-        df["容積率"] = youseki
-        df["地区"] = district_full
 
-        # 7. デバッグ出力（確認用）
-        print("DEBUG model input df:", df.to_dict(orient="records"))
-
-        # 8. 予測実行
+        # 予測
         if model is not None:
             pred = model.predict(df)[0]
         else:
             pred = dummy_predict(df)[0]
 
-        return {"predicted_price": pred, "used": {"都道府県": prefecture, "市区町村": city, "地区": district_full, "用途": youto}}
+        return {"predicted_price": pred, "used": payload}
+
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={
@@ -194,18 +180,41 @@ def predict_logic(data: dict):
             "received": data
         })
 
+# -------------------------
+# /predict endpoint
+# -------------------------
+
 @app.post("/predict")
 async def predict_endpoint(request: Request):
     payload = await request.json()
-    print("DEBUG received payload:", payload)
     try:
         result = predict_logic(payload)
-        print("DEBUG predict result:", result)
         return result
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error":"internal server error","message":str(e),"received":payload})
+        return JSONResponse(status_code=500, content={"error": "internal server error", "message": str(e)})
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return FileResponse("static/index.html")
+# -------------------------
+# MLIT API 統合
+# -------------------------
+
+@app.get("/mlit/trade")
+async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 20201, to_year: int = 20244):
+    if MLIT_KEY is None:
+        return {"error": "MLIT_API_KEY is not set"}
+
+    base_url = "https://www.land.mlit.go.jp/webland/api/TradeList"
+    params = {
+        "from": from_year,
+        "to": to_year,
+        "area": pref,
+        "city": city
+    }
+    if district:
+        params["district"] = district
+
+    headers = {"Ocp-Apim-Subscription-Key": MLIT_KEY}
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(base_url, params=params, headers=headers)
+        return r.json()
