@@ -148,9 +148,6 @@ def predict_logic(data: dict):
         df["駅距離"] = df["駅距離"].apply(clean_number)
         df["道路幅"] = df["道路幅"].apply(clean_number)
 
-        if "年度" in df.columns:
-            df = df.drop(columns=["年度"])
-
         df = numeric_impute(df)
 
         prefecture = payload["都道府県"]
