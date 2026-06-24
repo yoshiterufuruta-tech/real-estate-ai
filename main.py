@@ -59,14 +59,15 @@ def normalize_payload(data: dict):
         "築年数": data.get("築年数", data.get("年数", 0)),
         "駅距離": data.get("駅距離", 0),
         "道路幅": data.get("道路幅", 0),
+        "容積率": data.get("容積率", 0),
+        "建ぺい率": data.get("建ぺい率", 0),
         "都道府県": prefecture,
         "市区町村": city,
         "市区町村名": city,
         "地区": district,
-        "地域": data.get("地域", ""),
-        "容積率": data.get("容積率", 0),
-        "建ぺい率": data.get("建ぺい率", 0),
+        "地域": data.get("地域", "")
     }
+
 
 def convert_year_quarter(x):
     if not x or not isinstance(x, str):
