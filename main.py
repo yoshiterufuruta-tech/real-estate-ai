@@ -36,7 +36,6 @@ if os.path.exists(MODEL_PATH):
 else:
     print("No model file found at", MODEL_PATH, "- using dummy predictor")
 
-# MLIT API KEY
 MLIT_KEY = os.getenv("MLIT_API_KEY")
 
 # -------------------------
@@ -126,8 +125,8 @@ def predict_logic(data: dict):
         district_full = f"{city}_{district}" if district else city
         payload["地区_full"] = district_full
 
+        # モデルに渡すカラム（年度は raw だけ）
         model_input = {
-            "年度": payload["年度_raw"],
             "年度_raw": payload["年度_raw"],
             "年度_year": payload["年度_year"],
             "年度_quarter": payload["年度_quarter"],
@@ -146,22 +145,14 @@ def predict_logic(data: dict):
 
         df = pd.DataFrame([model_input])
 
-        df["面積"] = df["面積"].apply(clean_number)
-        df["築年数"] = df["築年数"].apply(clean_number)
-        df["駅距離"] = df["駅距離"].apply(clean_number)
-        df["道路幅"] = df["道路幅"].apply(clean_number)
-        df["容積率"] = df["容積率"].apply(clean_number)
-        df["建ぺい率"] = df["建ぺい率"].apply(clean_number)
+        # 数値変換
+        for col in ["面積", "築年数", "駅距離", "道路幅", "容積率", "建ぺい率"]:
+            df[col] = df[col].apply(clean_number)
 
         df = numeric_impute(df)
 
         prefecture = payload["都道府県"]
-        if prefecture == "東京都":
-            youto = "第一種住居地域"
-        else:
-            youto = "住宅地"
-
-        df["用途"] = youto
+        df["用途"] = "第一種住居地域" if prefecture == "東京都" else "住宅地"
 
         if model is not None:
             pred = model.predict(df)[0]
@@ -203,13 +194,7 @@ async def predict_endpoint(request: Request):
 # -------------------------
 
 @app.get("/mlit/trade")
-async def mlit_trade(
-    pref: str,
-    city: str,
-    district: str = "",
-    from_year: int = 20201,
-    to_year: int = 20244,
-):
+async def mlit_trade(pref: str, city: str, district: str = "", from_year: int = 20201, to_year: int = 20244):
     if MLIT_KEY is None:
         return {"error": "MLIT_API_KEY is not set in Render environment variables"}
 
@@ -218,7 +203,7 @@ async def mlit_trade(
         "from": from_year,
         "to": to_year,
         "area": pref,
-        "city": city,
+        "city": city
     }
     if district:
         params["district"] = district
@@ -229,7 +214,6 @@ async def mlit_trade(
         r = await client.get(base_url, params=params, headers=headers)
         return r.json()
 
-# 動作確認用ルート（任意）
 @app.get("/")
 def root():
     return {"status": "ok", "message": "real-estate-ai running"}
