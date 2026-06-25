@@ -1,205 +1,131 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <title>不動産価格AI 推定</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <style>
-    body {
-      font-family: "Hiragino Sans", "メイリオ", sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 0;
-    }
-
-    header {
-      background: #2c3e50;
-      color: white;
-      padding: 16px;
-      font-size: 20px;
-      text-align: center;
-      font-weight: bold;
-    }
-
-    .container {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    label {
-      display: block;
-      margin-top: 14px;
-      font-size: 15px;
-      font-weight: 600;
-      color: #34495e;
-    }
-
-    select, input {
-      width: 100%;
-      padding: 12px;
-      margin-top: 6px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-      background: white;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 24px;
-      padding: 14px;
-      background: #3498db;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:active {
-      background: #2980b9;
-    }
-
-    /* ★ 推定結果カード（スマホ向け） */
-    #result {
-      margin-top: 24px;
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      font-size: 22px;
-      font-weight: bold;
-      color: #2c3e50;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    #result .price {
-      font-size: 34px;
-      color: #3498db;
-      font-weight: 800;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>不動産価格推定AI</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        label { display: block; margin-top: 10px; }
+        input, select { width: 200px; padding: 5px; }
+        button { margin-top: 20px; padding: 10px 20px; }
+        #result { margin-top: 20px; font-size: 20px; font-weight: bold; }
+    </style>
 </head>
-
 <body>
-  <header>不動産価格AI 推定</header>
 
-  <div class="container">
+<h2>不動産価格推定AI</h2>
 
-    <label>都道府県
-      <select id="prefecture">
-        <option value="東京都">東京都</option>
-      </select>
-    </label>
+<label>市区町村名</label>
+<select id="city"></select>
 
-    <label>市区町村
-      <select id="city"></select>
-    </label>
+<label>地区名</label>
+<select id="district"></select>
 
-    <label>地区
-      <select id="district">
-        <option value="">（選択してください）</option>
-      </select>
-    </label>
+<label>面積（㎡）</label>
+<input id="area" type="number">
 
-    <label>面積（㎡）
-      <input id="area" type="number" value="50" />
-    </label>
+<label>築年数</label>
+<input id="age" type="number">
 
-    <label>築年数
-      <input id="age" type="number" value="40" />
-    </label>
+<label>最寄駅：距離（分）</label>
+<input id="station" type="number">
 
-    <label>駅距離（分）
-      <input id="station" type="number" value="10" />
-    </label>
+<label>前面道路：幅員（m）</label>
+<input id="road" type="number">
 
-    <label>道路幅（m）
-      <input id="road" type="number" value="5" />
-    </label>
+<label>建ぺい率（％）</label>
+<input id="kenpei" type="number">
 
-    <button id="btnPredict">推定する</button>
+<label>容積率（％）</label>
+<input id="yoseki" type="number">
 
-    <div id="result">推定結果がここに表示されます</div>
+<label>用途</label>
+<select id="use">
+    <option value="住宅">住宅</option>
+    <option value="店舗">店舗</option>
+    <option value="事務所">事務所</option>
+</select>
 
-  </div>
+<button onclick="predictPrice()">推定する</button>
 
-  <script>
-    let cityToDistricts = {};
+<div id="result"></div>
 
-    async function loadCities() {
-      const res = await fetch("/static/cities.json");
-      const cities = await res.json();
-      const citySel = document.getElementById("city");
-      cities.forEach(c => {
+<script>
+// ===============================
+// 1. 市区町村と地区のロード
+// ===============================
+async function loadCities() {
+    const res = await fetch("/static/cities.json");
+    const cities = await res.json();
+
+    const citySelect = document.getElementById("city");
+    cities.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c;
         opt.textContent = c;
-        citySel.appendChild(opt);
-      });
-    }
+        citySelect.appendChild(opt);
+    });
 
-    async function loadDistricts() {
-      const res = await fetch("/static/city_to_districts.json");
-      cityToDistricts = await res.json();
-    }
+    loadDistricts();
+}
 
-    document.getElementById("city").addEventListener("change", (e) => {
-      const city = e.target.value;
-      const sel = document.getElementById("district");
-      sel.innerHTML = '<option value="">（選択してください）</option>';
-      const list = cityToDistricts[city] || [];
-      list.forEach(d => {
+async function loadDistricts() {
+    const city = document.getElementById("city").value;
+    const res = await fetch("/static/city_to_districts.json");
+    const mapping = await res.json();
+
+    const districtSelect = document.getElementById("district");
+    districtSelect.innerHTML = "";
+
+    (mapping[city] || []).forEach(d => {
         const opt = document.createElement("option");
         opt.value = d;
         opt.textContent = d;
-        sel.appendChild(opt);
-      });
+        districtSelect.appendChild(opt);
     });
+}
 
-    async function predict() {
-      const data = {
-        都道府県: document.getElementById("prefecture").value,
-        市区町村: document.getElementById("city").value,
-        地区: document.getElementById("district").value,
-        面積: Number(document.getElementById("area").value),
-        築年数: Number(document.getElementById("age").value),
-        駅距離: Number(document.getElementById("station").value),
-        道路幅: Number(document.getElementById("road").value)
-      };
+document.getElementById("city").addEventListener("change", loadDistricts);
 
-      const res = await fetch("/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
+// ===============================
+// 2. 推定API呼び出し
+// ===============================
+async function predictPrice() {
+    const data = {
+        "市区町村名": document.getElementById("city").value,
+        "地区名": document.getElementById("district").value,
+        "面積": parseFloat(document.getElementById("area").value),
+        "築年数": parseFloat(document.getElementById("age").value),
+        "駅距離": parseFloat(document.getElementById("station").value),
+        "道路幅": parseFloat(document.getElementById("road").value),
+        "建ぺい率": parseFloat(document.getElementById("kenpei").value),
+        "容積率": parseFloat(document.getElementById("yoseki").value),
+        "用途": document.getElementById("use").value
+    };
 
-      const json = await res.json();
+    try {
+        const res = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
 
-      if (json.predicted_price) {
-        const price = json.predicted_price.toLocaleString();
-        document.getElementById("result").innerHTML = `
-          推定価格<br>
-          <span class="price">${price} 円</span>
-        `;
-      } else {
-        document.getElementById("result").textContent = "推定に失敗しました";
-      }
+        const result = await res.json();
+
+        if (result.predicted_price !== undefined) {
+            document.getElementById("result").innerText =
+                result.predicted_price.toLocaleString() + " 円";
+        } else {
+            document.getElementById("result").innerText = "推定に失敗しました";
+        }
+    } catch (e) {
+        document.getElementById("result").innerText = "推定に失敗しました";
     }
+}
 
-    document.getElementById("btnPredict").addEventListener("click", predict);
-
-    async function init() {
-      await loadCities();
-      await loadDistricts();
-      document.getElementById("city").dispatchEvent(new Event("change"));
-    }
-
-    init();
-  </script>
+// 初期ロード
+loadCities();
+</script>
 
 </body>
 </html>
