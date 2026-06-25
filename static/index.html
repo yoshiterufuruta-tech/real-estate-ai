@@ -4,42 +4,126 @@
   <meta charset="utf-8" />
   <title>不動産価格AI 推定</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
   <style>
-    body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "メイリオ", sans-serif; padding: 20px; }
-    label { display:block; margin-top:10px; }
-    select, input { padding:6px; width:320px; }
-    button { margin-top:12px; padding:8px 12px; }
-    pre { background:#f6f8fa; padding:10px; white-space:pre-wrap; }
+    body {
+      font-family: "Hiragino Sans", "メイリオ", sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 18px 24px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 24px auto;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+      margin-top: 32px;
+      border-left: 4px solid #3498db;
+      padding-left: 8px;
+      color: #34495e;
+    }
+
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 600;
+      color: #34495e;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 17px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .result-box {
+      background: #ecf0f1;
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 16px;
+      white-space: pre-wrap;
+      font-size: 15px;
+    }
   </style>
 </head>
+
 <body>
-  <h1>不動産価格AI 推定</h1>
+  <header>不動産価格AI 推定</header>
 
-  <label>都道府県
-    <select id="prefecture">
-      <option value="東京都">東京都</option>
-    </select>
-  </label>
+  <div class="container">
 
-  <label>市区町村
-    <select id="city"></select>
-  </label>
+    <label>都道府県
+      <select id="prefecture">
+        <option value="東京都">東京都</option>
+      </select>
+    </label>
 
-  <label>地区
-    <select id="district">
-      <option value="">（選択してください）</option>
-    </select>
-  </label>
+    <label>市区町村
+      <select id="city"></select>
+    </label>
 
-  <label>面積（㎡） <input id="area" type="number" value="50" /></label>
-  <label>築年数 <input id="age" type="number" value="40" /></label>
-  <label>駅距離（分） <input id="station" type="number" value="10" /></label>
-  <label>道路幅（m） <input id="road" type="number" value="5" /></label>
+    <label>地区
+      <select id="district">
+        <option value="">（選択してください）</option>
+      </select>
+    </label>
 
-  <button id="btnPredict">推定する</button>
+    <label>面積（㎡）
+      <input id="area" type="number" value="50" />
+    </label>
 
-  <h2>結果</h2>
-  <pre id="result">ここに結果が表示されます</pre>
+    <label>築年数
+      <input id="age" type="number" value="40" />
+    </label>
+
+    <label>駅距離（分）
+      <input id="station" type="number" value="10" />
+    </label>
+
+    <label>道路幅（m）
+      <input id="road" type="number" value="5" />
+    </label>
+
+    <button id="btnPredict">推定する</button>
+
+    <h2>推定結果</h2>
+    <div id="result" class="result-box">ここに結果が表示されます</div>
+
+  </div>
 
   <script>
     let cityToDistricts = {};
@@ -94,14 +178,14 @@
       const json = await res.json();
       document.getElementById("result").textContent =
         json.predicted_price
-          ? `推定価格: ${json.predicted_price}\n\n詳細: ${JSON.stringify(json.used, null, 2)}`
+          ? `推定価格: ${json.predicted_price.toLocaleString()} 円\n\n詳細:\n${JSON.stringify(json.used, null, 2)}`
           : JSON.stringify(json, null, 2);
     }
 
     document.getElementById("btnPredict").addEventListener("click", predict);
 
-    // 初期ロード
     loadCities().then(loadDistricts);
   </script>
+
 </body>
 </html>
