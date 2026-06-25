@@ -11,9 +11,6 @@
     <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
         body {
             font-family: 'Noto Sans JP', sans-serif;
@@ -81,37 +78,12 @@
             color: #1a2a4a;
         }
 
+        /* 地図エリア */
         #map {
             width: 100%;
             height: 300px;
             margin-top: 20px;
             border-radius: 8px;
-        }
-
-        #shap-container {
-            margin-top: 30px;
-        }
-
-        #shap-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        /* スマホ最適化 */
-        @media (max-width: 480px) {
-            header {
-                font-size: 18px;
-                padding: 14px;
-            }
-            .container {
-                margin: 10px;
-                padding: 20px;
-            }
-            button {
-                font-size: 17px;
-            }
         }
     </style>
 </head>
@@ -152,18 +124,12 @@
         <option value="事務所">事務所</option>
     </select>
 
-    <button onclick="predictWithShap()">推定する</button>
+    <button onclick="predictPrice()">推定する</button>
 
     <div id="result"></div>
 
     <!-- 地図 -->
     <div id="map"></div>
-
-    <!-- SHAP グラフ -->
-    <div id="shap-container">
-        <div id="shap-title">特徴量の寄与度（SHAP）</div>
-        <canvas id="shap-chart"></canvas>
-    </div>
 
 </div>
 
@@ -209,8 +175,9 @@ document.getElementById("city").addEventListener("change", loadDistricts);
 // ===============================
 let map = new maplibregl.Map({
     container: 'map',
+    style: 'https://demotiles.maplibre.org/style.json',
+    center: [139.767, 35.681], // 東京駅
     zoom: 11
-    style: 'https://tile.openstreetmap.jp/styles/osm-bright/style.json'
 });
 
 let marker = null;
@@ -234,43 +201,9 @@ async function geocode(city, district) {
 }
 
 // ===============================
-// SHAP グラフ描画
+// 推定API呼び出し + 地図移動
 // ===============================
-let shapChart = null;
-
-function drawShapChart(shapValues) {
-    const labels = Object.keys(shapValues);
-    const values = Object.values(shapValues);
-
-    const colors = values.map(v => v >= 0 ? "rgba(30, 80, 200, 0.8)" : "rgba(200, 50, 50, 0.8)");
-
-    if (shapChart) shapChart.destroy();
-
-    const ctx = document.getElementById("shap-chart").getContext("2d");
-    shapChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "寄与度（円）",
-                data: values,
-                backgroundColor: colors
-            }]
-        },
-        options: {
-            responsive: true,
-            indexAxis: "y",
-            scales: {
-                x: { beginAtZero: true }
-            }
-        }
-    });
-}
-
-// ===============================
-// 推定API呼び出し + SHAP + 地図移動
-// ===============================
-async function predictWithShap() {
+async function predictPrice() {
     const city = document.getElementById("city").value;
     const district = document.getElementById("district").value;
 
@@ -286,7 +219,8 @@ async function predictWithShap() {
         "用途": document.getElementById("use").value
     };
 
-    const res = await fetch("/predict_with_shap", {
+    // 予測
+    const res = await fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -299,11 +233,7 @@ async function predictWithShap() {
             result.predicted_price.toLocaleString() + " 円";
     } else {
         document.getElementById("result").innerText = "推定に失敗しました";
-        return;
     }
-
-    // SHAP グラフ描画
-    drawShapChart(result.shap_values);
 
     // 地図移動
     const pos = await geocode(city, district);
