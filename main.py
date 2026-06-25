@@ -53,11 +53,13 @@ class PredictRequest(BaseModel):
 @app.post("/predict")
 def predict(req: PredictRequest):
 
-    # train_model.py と同じ特徴量を生成
+    # 平均価格特徴量（train_model.py と揃える）
     city_avg = city_avg_price.get(req.市区町村名, 0)
     district_avg = district_avg_price.get(req.地区名, 0)
 
     data = {
+        # ★ モデルが要求している列をすべて揃える ★
+        "都道府県名": "東京都",  
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
         "面積": req.面積,
@@ -67,10 +69,11 @@ def predict(req: PredictRequest):
         "建ぺい率": req.建ぺい率,
         "容積率": req.容積率,
         "用途": req.用途,
+
         "市区町村平均価格": city_avg,
         "地区平均価格": district_avg,
         "市区町村平均価格_log": np.log1p(city_avg),
-        "地区平均価格_log": np.log1p(district_avg)
+        "地区平均価格_log": np.log1p(district_avg),
     }
 
     df = pd.DataFrame([data])
