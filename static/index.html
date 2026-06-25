@@ -2,10 +2,17 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>不動産価格推定AIモデル（東京都版）I</title>
+    <title>不動産価格推定AIモデル（東京都版）</title>
 
     <!-- ビジネス向けフォント -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- MapLibre -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         body {
@@ -62,10 +69,6 @@
             cursor: pointer;
         }
 
-        button:hover {
-            background: #243a63;
-        }
-
         #result {
             margin-top: 24px;
             font-size: 22px;
@@ -74,19 +77,22 @@
             color: #1a2a4a;
         }
 
-        /* スマホ最適化 */
-        @media (max-width: 480px) {
-            header {
-                font-size: 18px;
-                padding: 14px;
-            }
-            .container {
-                margin: 10px;
-                padding: 20px;
-            }
-            button {
-                font-size: 17px;
-            }
+        #map {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+
+        #shap-container {
+            margin-top: 30px;
+        }
+
+        #shap-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-align: center;
         }
     </style>
 </head>
@@ -127,9 +133,19 @@
         <option value="事務所">事務所</option>
     </select>
 
-    <button onclick="predictPrice()">推定する</button>
+    <button onclick="predictWithShap()">推定する</button>
 
     <div id="result"></div>
+
+    <!-- 地図 -->
+    <div id="map"></div>
+
+    <!-- SHAP グラフ -->
+    <div id="shap-container">
+        <div id="shap-title">特徴量の寄与度（SHAP）</div>
+        <canvas id="shap-chart"></canvas>
+    </div>
+
 </div>
 
 <script>
@@ -170,12 +186,79 @@ async function loadDistricts() {
 document.getElementById("city").addEventListener("change", loadDistricts);
 
 // ===============================
-// 推定API呼び出し
+// MapLibre 初期化
 // ===============================
-async function predictPrice() {
+let map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://demotiles.maplibre.org/style.json',
+    center: [139.767, 35.681],
+    zoom: 11
+});
+
+let marker = null;
+
+// ===============================
+// Nominatim で住所 → 緯度経度
+// ===============================
+async function geocode(city, district) {
+    const q = `${city} ${district}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.length === 0) return null;
+
+    return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon)
+    };
+}
+
+// ===============================
+// SHAP グラフ描画
+// ===============================
+let shapChart = null;
+
+function drawShapChart(shapValues) {
+    const labels = Object.keys(shapValues);
+    const values = Object.values(shapValues);
+
+    const colors = values.map(v => v >= 0 ? "rgba(30, 80, 200, 0.8)" : "rgba(200, 50, 50, 0.8)");
+
+    if (shapChart) shapChart.destroy();
+
+    const ctx = document.getElementById("shap-chart").getContext("2d");
+    shapChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "寄与度（円）",
+                data: values,
+                backgroundColor: colors
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: "y",
+            scales: {
+                x: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// ===============================
+// 推定API呼び出し + SHAP + 地図移動
+// ===============================
+async function predictWithShap() {
+    const city = document.getElementById("city").value;
+    const district = document.getElementById("district").value;
+
     const data = {
-        "市区町村名": document.getElementById("city").value,
-        "地区名": document.getElementById("district").value,
+        "市区町村名": city,
+        "地区名": district,
         "面積": parseFloat(document.getElementById("area").value),
         "築年数": parseFloat(document.getElementById("age").value),
         "駅距離": parseFloat(document.getElementById("station").value),
@@ -185,23 +268,31 @@ async function predictPrice() {
         "用途": document.getElementById("use").value
     };
 
-    try {
-        const res = await fetch("/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        });
+    const res = await fetch("/predict_with_shap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+    });
 
-        const result = await res.json();
+    const result = await res.json();
 
-        if (result.predicted_price !== undefined) {
-            document.getElementById("result").innerText =
-                result.predicted_price.toLocaleString() + " 円";
-        } else {
-            document.getElementById("result").innerText = "推定に失敗しました";
-        }
-    } catch (e) {
+    if (result.predicted_price !== undefined) {
+        document.getElementById("result").innerText =
+            result.predicted_price.toLocaleString() + " 円";
+    } else {
         document.getElementById("result").innerText = "推定に失敗しました";
+    }
+
+    // SHAP グラフ描画
+    drawShapChart(result.shap_values);
+
+    // 地図移動
+    const pos = await geocode(city, district);
+    if (pos) {
+        map.flyTo({ center: [pos.lon, pos.lat], zoom: 15 });
+
+        if (marker) marker.remove();
+        marker = new maplibregl.Marker().setLngLat([pos.lon, pos.lat]).addTo(map);
     }
 }
 
