@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>不動産価格推定AIモデル（東京都版）</title>
 
-    <!-- ビジネス向けフォント -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <!-- MapLibre -->
@@ -175,7 +174,7 @@ document.getElementById("city").addEventListener("change", loadDistricts);
 // ===============================
 let map = new maplibregl.Map({
     container: 'map',
-    style: 'https://demotiles.maplibre.org/style.json',
+    style: 'https://tiles.stadiamaps.com/styles/osm_bright.json'
     center: [139.767, 35.681], // 東京駅
     zoom: 11
 });
