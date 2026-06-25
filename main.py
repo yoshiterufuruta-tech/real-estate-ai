@@ -30,17 +30,12 @@ class PredictRequest(BaseModel):
     築年数: float
     駅距離: float
     道路幅: float
-
-# ============================
-# /predict（CSV を読まない安定版）
-# ============================
-
+    
 @app.post("/predict")
 def predict(req: PredictRequest):
 
     combined_district = req.市区町村 + "_" + req.地区
 
-    # ★ CSV を読まない。平均値は LightGBM の Imputer に任せる。
     data = pd.DataFrame([{
         "都道府県名": req.都道府県,
         "市区町村名": req.市区町村,
