@@ -7,35 +7,16 @@ import json
 import pandas as pd
 from pathlib import Path
 
-# ============================
-# パス設定
-# ============================
-
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
-# ============================
-# FastAPI アプリ本体
-# ============================
-
 app = FastAPI()
-
-# static フォルダを公開
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-# ============================
-# モデル読み込み
-# ============================
 
 model = joblib.load(BASE_DIR / "model.pkl")
 
-# 前処理部分と LightGBM 部分を分離
 preprocess = model.named_steps["preprocess"]
 regressor = model.named_steps["regressor"]
-
-# ============================
-# JSON 読み込み（train_model.py で生成）
-# ============================
 
 with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
     city_avg_price = json.load(f)
@@ -43,7 +24,6 @@ with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
 with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
     district_avg_price = json.load(f)
 
-# ColumnTransformer の出力列名を取得（これが正しい列順）
 feature_columns = preprocess.get_feature_names_out()
 
 class PredictRequest(BaseModel):
@@ -60,7 +40,6 @@ class PredictRequest(BaseModel):
 @app.post("/predict")
 def predict(req: PredictRequest):
 
-    # train_model.py と同じ特徴量を生成
     city_avg = city_avg_price.get(req.市区町村名, 0)
     district_avg = district_avg_price.get(req.地区名, 0)
 
@@ -81,13 +60,10 @@ def predict(req: PredictRequest):
         "地区平均価格_log": np.log1p(district_avg)
     }])
     
-    # ColumnTransformer に通す
     X = preprocess.transform(raw)
 
-    # 推定
     pred = model.predict(X)[0]
 
-    # マイナス予測は 0 に補正（安全策）
     pred = max(pred, 0)
 
     return {"predicted_price": int(pred)}
