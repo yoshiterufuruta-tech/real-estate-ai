@@ -25,6 +25,9 @@ regressor = model.named_steps["regressor"]
 # LightGBM の booster を SHAP に渡す
 explainer = shap.TreeExplainer(regressor.booster_)
 
+# 前処理後の列名（OneHotEncoder 展開後）
+feature_names_after = preprocess.get_feature_names_out()
+
 # JSON 読み込み
 with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
     city_avg_price = json.load(f)
@@ -89,7 +92,12 @@ def predict_with_shap(req: PredictRequest):
 
     # 上位20個だけ返す
     top_idx = np.argsort(np.abs(shap_values))[::-1][:20]
-    shap_dict = {f"feature_{i}": float(shap_values[i]) for i in top_idx}
+
+    # 日本語の特徴量名で返す
+    shap_dict = {
+        feature_names_after[i]: float(shap_values[i])
+        for i in top_idx
+    }
 
     return {
         "predicted_price": int(pred),
