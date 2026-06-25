@@ -29,6 +29,10 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 model = joblib.load(BASE_DIR / "model.pkl")
 
+# 前処理部分と LightGBM 部分を分離
+preprocess = model.named_steps["preprocess"]
+regressor = model.named_steps["regressor"]
+
 # ============================
 # JSON 読み込み（train_model.py で生成）
 # ============================
@@ -39,12 +43,8 @@ with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
 with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
     district_avg_price = json.load(f)
 
-with open(STATIC_DIR / "feature_columns.json", encoding="utf-8") as f:
-    feature_columns = json.load(f)
-
-# ============================
-# 入力データ形式
-# ============================
+# ColumnTransformer の出力列名を取得（これが正しい列順）
+feature_columns = preprocess.get_feature_names_out()
 
 class PredictRequest(BaseModel):
     市区町村名: str
@@ -57,10 +57,6 @@ class PredictRequest(BaseModel):
     容積率: float
     用途: str
 
-# ============================
-# 推定 API
-# ============================
-
 @app.post("/predict")
 def predict(req: PredictRequest):
 
@@ -68,7 +64,7 @@ def predict(req: PredictRequest):
     city_avg = city_avg_price.get(req.市区町村名, 0)
     district_avg = district_avg_price.get(req.地区名, 0)
 
-    data = {
+    raw = pd.DataFrame([{
         "都道府県名": "東京都",  # ← 学習データが東京都のみなので固定
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
@@ -83,17 +79,13 @@ def predict(req: PredictRequest):
         "地区平均価格": district_avg,
         "市区町村平均価格_log": np.log1p(city_avg),
         "地区平均価格_log": np.log1p(district_avg)
-    }
-
-    # ============================
-    # 列順を学習時と完全一致させる（警告ゼロ・マイナス予測ゼロの核心）
-    # ============================
-
-    row = {col: data.get(col, np.nan) for col in feature_columns}
-    df = pd.DataFrame([row], columns=feature_columns)
+    }])
+    
+    # ColumnTransformer に通す
+    X = preprocess.transform(raw)
 
     # 推定
-    pred = model.predict(df)[0]
+    pred = model.predict(X)[0]
 
     # マイナス予測は 0 に補正（安全策）
     pred = max(pred, 0)
