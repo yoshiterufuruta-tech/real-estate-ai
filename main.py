@@ -1,54 +1,148 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import joblib
 import pandas as pd
+import numpy as np
+import joblib
+import json
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from lightgbm import LGBMRegressor
 
-app = FastAPI()
+# ============================
+# 1. CSV 読み込み
+# ============================
 
-model = joblib.load("model.pkl")
+df = pd.read_csv(
+    r"C:\Users\yoshi\AI\Tokyo_20244_20254.csv",
+    encoding="cp932"
+)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ============================
+# 2. 必要な列だけ抽出
+# ============================
 
-class PredictRequest(BaseModel):
-    都道府県: str
-    市区町村: str
-    地区: str
-    面積: float
-    築年数: float
-    駅距離: float
-    道路幅: float
+use_cols = [
+    "都道府県名",
+    "市区町村名",
+    "地区名",
+    "面積（㎡）",
+    "建築年",
+    "最寄駅：距離（分）",
+    "前面道路：幅員（ｍ）",
+    "建ぺい率（％）",
+    "容積率（％）",
+    "用途",
+    "取引価格（総額）"
+]
 
-@app.post("/predict")
-def predict(req: PredictRequest):
+df = df[use_cols].copy()
 
-    combined_district = req.市区町村 + "_" + req.地区
+# ============================
+# 3. ★ 根本バグ修正：築年数を正しく計算
+# ============================
 
-    # ★ train_model.py と完全一致する列名で DataFrame を作成
-    data = pd.DataFrame([{
-        "都道府県名": req.都道府県,
-        "市区町村名": req.市区町村,
-        "地区名": combined_district,
-        "面積": req.面積,
-        "築年数": req.築年数,
-        "駅距離": req.駅距離,
-        "道路幅": req.道路幅,
+# 本来は取引時点の年を使うべきだが、ここでは 2024 とする
+df["築年数"] = 2024 - df["建築年"]
 
-        # train_model.py で追加した列
-        "地区平均価格": 0,
-        "市区町村平均価格": 0,
+# 建築年はもう不要
+df = df.drop(columns=["建築年"])
 
-        # train_model.py に存在した列
-        "建ぺい率": 0,
-        "容積率": 0,
-        "用途": ""
-    }])
+# ============================
+# 4. 列名変換
+# ============================
 
-    pred = model.predict(data)[0]
-    pred = max(pred, 0)
+df = df.rename(columns={
+    "面積（㎡）": "面積",
+    "最寄駅：距離（分）": "駅距離",
+    "前面道路：幅員（ｍ）": "道路幅",
+    "建ぺい率（％）": "建ぺい率",
+    "容積率（％）": "容積率",
+    "取引価格（総額）": "価格"
+})
 
-    return {"predicted_price": int(pred)}
+# ============================
+# 5. 地区名を強化（市区町村 + 地区）
+# ============================
 
-@app.get("/")
-def root():
-    return {"message": "Real Estate AI Running"}
+df["地区名"] = df["市区町村名"] + "_" + df["地区名"].fillna("")
+
+# ============================
+# 6. 地区平均価格・市区町村平均価格
+# ============================
+
+df["地区平均価格"] = df.groupby("地区名")["価格"].transform("mean")
+df["市区町村平均価格"] = df.groupby("市区町村名")["価格"].transform("mean")
+
+# ============================
+# 7. 目的変数と説明変数
+# ============================
+
+y = df["価格"]
+X = df.drop(columns=["価格"])
+
+# ============================
+# 8. 数値列・カテゴリ列
+# ============================
+
+numeric_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
+categorical_cols = X.select_dtypes(include=["object", "str"]).columns.tolist()
+
+# 地区名・市区町村名はカテゴリ扱い
+for col in ["市区町村名", "地区名"]:
+    if col in numeric_cols:
+        numeric_cols.remove(col)
+    if col not in categorical_cols:
+        categorical_cols.append(col)
+
+# ============================
+# 9. 前処理 + LightGBM
+# ============================
+
+preprocess = ColumnTransformer(
+    transformers=[
+        ("num", SimpleImputer(strategy="mean"), numeric_cols),
+        ("cat", Pipeline(steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("encoder", OneHotEncoder(handle_unknown="ignore"))
+        ]), categorical_cols)
+    ]
+)
+
+model = Pipeline(steps=[
+    ("preprocess", preprocess),
+    ("regressor", LGBMRegressor(
+        n_estimators=600,
+        learning_rate=0.05,
+        max_depth=-1,
+        random_state=42
+    ))
+])
+
+# ============================
+# 10. 学習
+# ============================
+
+model.fit(X, y)
+
+# ============================
+# 11. 保存
+# ============================
+
+joblib.dump(model, "model.pkl")
+
+# ============================
+# 12. JSON（UI 用）
+# ============================
+
+city_to_districts = (
+    df.groupby("市区町村名")["地区名"]
+      .apply(lambda x: sorted(set(x.dropna())))
+      .to_dict()
+)
+
+with open("static/city_to_districts.json", "w", encoding="utf-8") as f:
+    json.dump(city_to_districts, f, ensure_ascii=False, indent=2)
+
+cities = sorted(set(df["市区町村名"].dropna()))
+with open("static/cities.json", "w", encoding="utf-8") as f:
+    json.dump(cities, f, ensure_ascii=False, indent=2)
