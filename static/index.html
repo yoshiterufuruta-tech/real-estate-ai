@@ -1,4 +1,3 @@
-<!-- static/index.html -->
 <!doctype html>
 <html lang="ja">
 <head>
@@ -14,7 +13,7 @@
   </style>
 </head>
 <body>
-  <h1>不動産価格AI 推定（デモ）</h1>
+  <h1>不動産価格AI 推定</h1>
 
   <label>都道府県
     <select id="prefecture">
@@ -23,26 +22,12 @@
   </label>
 
   <label>市区町村
-    <select id="city">
-      <option value="世田谷区">世田谷区</option>
-      <option value="渋谷区">渋谷区</option>
-      <option value="港区">港区</option>
-      <option value="八王子市">八王子市</option>
-    </select>
+    <select id="city"></select>
   </label>
 
   <label>地区
-    <select id="district" name="地区">
+    <select id="district">
       <option value="">（選択してください）</option>
-      <option value="三宿">三宿</option>
-      <option value="三軒茶屋">三軒茶屋</option>
-      <option value="上北沢">上北沢</option>
-      <option value="上馬">上馬</option>
-      <option value="北沢">北沢</option>
-      <option value="神宮前">神宮前</option>
-      <option value="代々木">代々木</option>
-      <option value="恵比寿">恵比寿</option>
-      <option value="広尾">広尾</option>
     </select>
   </label>
 
@@ -57,17 +42,28 @@
   <pre id="result">ここに結果が表示されます</pre>
 
   <script>
-    const cityToDistricts = {
-      "世田谷区": ["三宿","三軒茶屋","上北沢","上馬","北沢"],
-      "渋谷区": ["神宮前","代々木","恵比寿","広尾"],
-      "港区": ["麻布","六本木","芝","白金"],
-      "八王子市": ["八王子","北野","片倉"]
-    };
+    let cityToDistricts = {};
+
+    async function loadCities() {
+      const res = await fetch("/static/cities.json");
+      const cities = await res.json();
+      const citySel = document.getElementById("city");
+      cities.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        citySel.appendChild(opt);
+      });
+    }
+
+    async function loadDistricts() {
+      const res = await fetch("/static/city_to_districts.json");
+      cityToDistricts = await res.json();
+    }
 
     document.getElementById("city").addEventListener("change", (e) => {
       const city = e.target.value;
       const sel = document.getElementById("district");
-      const current = sel.value;
       sel.innerHTML = '<option value="">（選択してください）</option>';
       const list = cityToDistricts[city] || [];
       list.forEach(d => {
@@ -76,51 +72,36 @@
         opt.textContent = d;
         sel.appendChild(opt);
       });
-      if (list.includes(current)) sel.value = current;
     });
 
     async function predict() {
-      const prefectureEl = document.getElementById("prefecture");
-      const cityEl = document.getElementById("city");
-      const districtEl = document.getElementById("district");
-
       const data = {
-        都道府県: prefectureEl ? prefectureEl.value : "",
-        市区町村: cityEl ? cityEl.value : "",
-        地区: districtEl ? districtEl.value : "",
-        面積: Number(document.getElementById("area")?.value) || 0,
-        築年数: Number(document.getElementById("age")?.value) || 0,
-        駅距離: Number(document.getElementById("station")?.value) || 0,
-        道路幅: Number(document.getElementById("road")?.value) || 0,
-        年度: "2024年第1四半期"
+        都道府県: document.getElementById("prefecture").value,
+        市区町村: document.getElementById("city").value,
+        地区: document.getElementById("district").value,
+        面積: Number(document.getElementById("area").value),
+        築年数: Number(document.getElementById("age").value),
+        駅距離: Number(document.getElementById("station").value),
+        道路幅: Number(document.getElementById("road").value)
       };
 
-      console.log("DEBUG sending payload:", data);
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
 
-      try {
-        const res = await fetch("/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
-          body: JSON.stringify(data)
-        });
-        const json = await res.json();
-        console.log("DEBUG predict result:", json);
-        if (json.predicted_price !== undefined) {
-          document.getElementById("result").textContent = "推定価格: " + json.predicted_price + "\n\n詳細: " + JSON.stringify(json.used, null, 2);
-        } else {
-          document.getElementById("result").textContent = "レスポンス: " + JSON.stringify(json, null, 2);
-        }
-      } catch (err) {
-        console.error("fetch error:", err);
-        document.getElementById("result").textContent = "通信エラー: " + err;
-      }
+      const json = await res.json();
+      document.getElementById("result").textContent =
+        json.predicted_price
+          ? `推定価格: ${json.predicted_price}\n\n詳細: ${JSON.stringify(json.used, null, 2)}`
+          : JSON.stringify(json, null, 2);
     }
 
-    document.getElementById("btnPredict").addEventListener("click", async () => {
-      await predict();
-    });
+    document.getElementById("btnPredict").addEventListener("click", predict);
 
-    document.getElementById("city").dispatchEvent(new Event('change'));
+    // 初期ロード
+    loadCities().then(loadDistricts);
   </script>
 </body>
 </html>
