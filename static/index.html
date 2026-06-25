@@ -2,8 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>不動産価格 AI 推定</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>不動産価格AI 推定</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     body {
       font-family: "Hiragino Sans", "メイリオ", sans-serif;
@@ -15,41 +16,34 @@
     header {
       background: #2c3e50;
       color: white;
-      padding: 18px 24px;
+      padding: 16px;
       font-size: 20px;
+      text-align: center;
       font-weight: bold;
     }
 
     .container {
-      max-width: 720px;
-      margin: 24px auto;
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    h2 {
-      margin-top: 32px;
-      border-left: 4px solid #3498db;
-      padding-left: 8px;
-      color: #34495e;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
     }
 
     label {
       display: block;
-      margin-top: 16px;
+      margin-top: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: #34495e;
     }
 
     select, input {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 6px;
       border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 15px;
+      border-radius: 8px;
+      font-size: 16px;
+      background: white;
     }
 
     button {
@@ -59,29 +53,39 @@
       background: #3498db;
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 17px;
-      cursor: pointer;
+      border-radius: 10px;
+      font-size: 18px;
       font-weight: bold;
+      cursor: pointer;
     }
 
-    button:hover {
+    button:active {
       background: #2980b9;
     }
 
-    .result-box {
-      background: #ecf0f1;
-      padding: 16px;
-      border-radius: 8px;
-      margin-top: 16px;
-      white-space: pre-wrap;
-      font-size: 15px;
+    /* ★ 推定結果カード（スマホ向け） */
+    #result {
+      margin-top: 24px;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+      color: #2c3e50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    #result .price {
+      font-size: 34px;
+      color: #3498db;
+      font-weight: 800;
     }
   </style>
 </head>
 
 <body>
-  <header>不動産価格 AI 推定</header>
+  <header>不動産価格AI 推定</header>
 
   <div class="container">
 
@@ -119,8 +123,7 @@
 
     <button id="btnPredict">推定する</button>
 
-    <h2>推定結果</h2>
-    <div id="result" class="result-box">ここに結果が表示されます</div>
+    <div id="result">推定結果がここに表示されます</div>
 
   </div>
 
@@ -175,15 +178,20 @@
       });
 
       const json = await res.json();
-      document.getElementById("result").textContent =
-        json.predicted_price
-          ? `推定価格: ${json.predicted_price.toLocaleString()} 円\n\n詳細:\n${JSON.stringify(json.used, null, 2)}`
-          : JSON.stringify(json, null, 2);
+
+      if (json.predicted_price) {
+        const price = json.predicted_price.toLocaleString();
+        document.getElementById("result").innerHTML = `
+          推定価格<br>
+          <span class="price">${price} 円</span>
+        `;
+      } else {
+        document.getElementById("result").textContent = "推定に失敗しました";
+      }
     }
 
     document.getElementById("btnPredict").addEventListener("click", predict);
 
-    // ★ 修正版：JSON 読み込み完了後に初期化
     async function init() {
       await loadCities();
       await loadDistricts();
