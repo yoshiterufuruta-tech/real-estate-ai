@@ -6,21 +6,9 @@ import pandas as pd
 
 app = FastAPI()
 
-# ============================
-# モデル読み込み
-# ============================
-
 model = joblib.load("model.pkl")
 
-# ============================
-# 静的ファイル（index.html, JSON）を配信
-# ============================
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# ============================
-# 入力データモデル
-# ============================
 
 class PredictRequest(BaseModel):
     都道府県: str
@@ -31,38 +19,34 @@ class PredictRequest(BaseModel):
     駅距離: float
     道路幅: float
 
-# ============================
-# /predict（完全版）
-# ============================
-
 @app.post("/predict")
 def predict(req: PredictRequest):
+
+    combined_district = req.市区町村 + "_" + req.地区
 
     data = pd.DataFrame([{
         "都道府県名": req.都道府県,
         "市区町村名": req.市区町村,
-        "地区名": req.地区,
+        "地区名": combined_district,
         "面積": req.面積,
         "築年数": req.築年数,
         "駅距離": req.駅距離,
         "道路幅": req.道路幅,
-        "建ぺい率": 0, 
+
+        "地区平均価格": 0,
+        "市区町村平均価格": 0,
+
+        "建ぺい率": 0,
         "容積率": 0,
-        "用途": ""  
+        "用途": ""
     }])
 
-    # 予測
     pred = model.predict(data)[0]
 
     return {
-        "predicted_price": int(pred),
-        "used": data.to_dict(orient="records")[0]
+        "predicted_price": int(pred)
     }
-
-# ============================
-# ルート（index.html を返す）
-# ============================
 
 @app.get("/")
 def root():
-    return {"message": "不動産価格AI API 動作中。/static/index.html を開いてください。"}
+    return {"message": "Real Estate AI Running"}
