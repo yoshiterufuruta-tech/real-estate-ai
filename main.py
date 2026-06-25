@@ -5,6 +5,14 @@ import joblib
 import numpy as np
 import json
 import pandas as pd
+from pathlib import Path
+
+# ============================
+# パス設定
+# ============================
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
 # ============================
 # FastAPI アプリ本体
@@ -13,23 +21,26 @@ import pandas as pd
 app = FastAPI()
 
 # static フォルダを公開
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # ============================
 # モデル読み込み
 # ============================
 
-model = joblib.load("model.pkl")
+model = joblib.load(BASE_DIR / "model.pkl")
 
 # ============================
 # JSON 読み込み（train_model.py で生成）
 # ============================
 
-with open("static/city_avg_price.json", encoding="utf-8") as f:
+with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
     city_avg_price = json.load(f)
 
-with open("static/district_avg_price.json", encoding="utf-8") as f:
+with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
     district_avg_price = json.load(f)
+
+with open(STATIC_DIR / "feature_columns.json", encoding="utf-8") as f:
+    feature_columns = json.load(f)
 
 # ============================
 # 入力データ形式
@@ -53,14 +64,12 @@ class PredictRequest(BaseModel):
 @app.post("/predict")
 def predict(req: PredictRequest):
 
-    # 平均価格特徴量（train_model.py と揃える）
+    # train_model.py と同じ特徴量を生成
     city_avg = city_avg_price.get(req.市区町村名, 0)
     district_avg = district_avg_price.get(req.地区名, 0)
 
     data = {
-        # ★ モデルが要求している列をすべて揃える ★
-        "都道府県名": "東京都",  # ← ここを追加（学習時と同じ前提）
-
+        "都道府県名": "東京都",  # ← 学習データが東京都のみなので固定
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
         "面積": req.面積,
@@ -70,14 +79,23 @@ def predict(req: PredictRequest):
         "建ぺい率": req.建ぺい率,
         "容積率": req.容積率,
         "用途": req.用途,
-
         "市区町村平均価格": city_avg,
         "地区平均価格": district_avg,
         "市区町村平均価格_log": np.log1p(city_avg),
-        "地区平均価格_log": np.log1p(district_avg),
+        "地区平均価格_log": np.log1p(district_avg)
     }
 
-    df = pd.DataFrame([data])
+    # ============================
+    # 列順を学習時と完全一致させる（警告ゼロ・マイナス予測ゼロの核心）
+    # ============================
+
+    row = {col: data.get(col, np.nan) for col in feature_columns}
+    df = pd.DataFrame([row], columns=feature_columns)
+
+    # 推定
     pred = model.predict(df)[0]
+
+    # マイナス予測は 0 に補正（安全策）
+    pred = max(pred, 0)
 
     return {"predicted_price": int(pred)}
