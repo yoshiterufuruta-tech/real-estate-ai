@@ -62,8 +62,7 @@ def predict(req: PredictRequest):
     
     X = preprocess.transform(raw)
 
-    pred = model.predict(X)[0]
-
+    pred = regressor.predict(X)[0]
     pred = max(pred, 0)
 
     return {"predicted_price": int(pred)}
