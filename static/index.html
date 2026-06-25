@@ -2,57 +2,139 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>不動産価格推定AI</title>
+    <title>不動産価格推定A（東京都版）I</title>
+
+    <!-- ビジネス向けフォント -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        label { display: block; margin-top: 10px; }
-        input, select { width: 200px; padding: 5px; }
-        button { margin-top: 20px; padding: 10px 20px; }
-        #result { margin-top: 20px; font-size: 20px; font-weight: bold; }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        header {
+            background: #1a2a4a;
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 20px auto;
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 24px;
+            padding: 14px;
+            background: #1a2a4a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #243a63;
+        }
+
+        #result {
+            margin-top: 24px;
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+            color: #1a2a4a;
+        }
+
+        /* スマホ最適化 */
+        @media (max-width: 480px) {
+            header {
+                font-size: 18px;
+                padding: 14px;
+            }
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            button {
+                font-size: 17px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<h2>不動産価格推定AI</h2>
+<header>不動産価格推定AI（東京都版）</header>
 
-<label>市区町村名</label>
-<select id="city"></select>
+<div class="container">
 
-<label>地区名</label>
-<select id="district"></select>
+    <label>市区町村名</label>
+    <select id="city"></select>
 
-<label>面積（㎡）</label>
-<input id="area" type="number">
+    <label>地区名</label>
+    <select id="district"></select>
 
-<label>築年数</label>
-<input id="age" type="number">
+    <label>面積（㎡）</label>
+    <input id="area" type="number">
 
-<label>最寄駅：距離（分）</label>
-<input id="station" type="number">
+    <label>築年数</label>
+    <input id="age" type="number">
 
-<label>前面道路：幅員（m）</label>
-<input id="road" type="number">
+    <label>最寄駅：距離（分）</label>
+    <input id="station" type="number">
 
-<label>建ぺい率（％）</label>
-<input id="kenpei" type="number">
+    <label>前面道路：幅員（m）</label>
+    <input id="road" type="number">
 
-<label>容積率（％）</label>
-<input id="yoseki" type="number">
+    <label>建ぺい率（％）</label>
+    <input id="kenpei" type="number">
 
-<label>用途</label>
-<select id="use">
-    <option value="住宅">住宅</option>
-    <option value="店舗">店舗</option>
-    <option value="事務所">事務所</option>
-</select>
+    <label>容積率（％）</label>
+    <input id="yoseki" type="number">
 
-<button onclick="predictPrice()">推定する</button>
+    <label>用途</label>
+    <select id="use">
+        <option value="住宅">住宅</option>
+        <option value="店舗">店舗</option>
+        <option value="事務所">事務所</option>
+    </select>
 
-<div id="result"></div>
+    <button onclick="predictPrice()">推定する</button>
+
+    <div id="result"></div>
+</div>
 
 <script>
 // ===============================
-// 1. 市区町村と地区のロード
+// 市区町村と地区のロード
 // ===============================
 async function loadCities() {
     const res = await fetch("/static/cities.json");
@@ -88,7 +170,7 @@ async function loadDistricts() {
 document.getElementById("city").addEventListener("change", loadDistricts);
 
 // ===============================
-// 2. 推定API呼び出し
+// 推定API呼び出し
 // ===============================
 async function predictPrice() {
     const data = {
