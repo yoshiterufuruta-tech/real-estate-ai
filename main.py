@@ -38,7 +38,7 @@ def predict(req: PredictRequest):
         "地区平均価格": 0,
         "市区町村平均価格": 0,
 
-        # train_model.py で存在した列
+        # train_model.py に存在した列
         "建ぺい率": 0,
         "容積率": 0,
         "用途": ""
@@ -48,3 +48,7 @@ def predict(req: PredictRequest):
     pred = max(pred, 0)
 
     return {"predicted_price": int(pred)}
+
+@app.get("/")
+def root():
+    return {"message": "Real Estate AI Running"}
