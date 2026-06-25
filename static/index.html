@@ -69,6 +69,10 @@
             cursor: pointer;
         }
 
+        button:hover {
+            background: #243a63;
+        }
+
         #result {
             margin-top: 24px;
             font-size: 22px;
@@ -93,6 +97,21 @@
             font-weight: 600;
             margin-bottom: 10px;
             text-align: center;
+        }
+
+        /* スマホ最適化 */
+        @media (max-width: 480px) {
+            header {
+                font-size: 18px;
+                padding: 14px;
+            }
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            button {
+                font-size: 17px;
+            }
         }
     </style>
 </head>
@@ -270,35 +289,3 @@ async function predictWithShap() {
 
     const res = await fetch("/predict_with_shap", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
-
-    const result = await res.json();
-
-    if (result.predicted_price !== undefined) {
-        document.getElementById("result").innerText =
-            result.predicted_price.toLocaleString() + " 円";
-    } else {
-        document.getElementById("result").innerText = "推定に失敗しました";
-    }
-
-    // SHAP グラフ描画
-    drawShapChart(result.shap_values);
-
-    // 地図移動
-    const pos = await geocode(city, district);
-    if (pos) {
-        map.flyTo({ center: [pos.lon, pos.lat], zoom: 15 });
-
-        if (marker) marker.remove();
-        marker = new maplibregl.Marker().setLngLat([pos.lon, pos.lat]).addTo(map);
-    }
-}
-
-// 初期ロード
-loadCities();
-</script>
-
-</body>
-</html>
