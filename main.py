@@ -7,6 +7,7 @@ import json
 import pandas as pd
 from pathlib import Path
 import shap
+from scipy.sparse import csr_matrix
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -81,6 +82,10 @@ def predict_with_shap(req: PredictRequest):
 
     # SHAP 計算
     shap_values = explainer.shap_values(X_trans)[0]
+
+    # csr_matrix → dense に変換
+    if isinstance(shap_values, csr_matrix):
+        shap_values = shap_values.toarray().flatten()
 
     # 上位20個だけ返す
     top_idx = np.argsort(np.abs(shap_values))[::-1][:20]
