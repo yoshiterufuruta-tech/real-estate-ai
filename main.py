@@ -6,29 +6,33 @@ import numpy as np
 import json
 import pandas as pd
 from pathlib import Path
-import shap
-from scipy.sparse import csr_matrix
+
+# ============================
+# パス設定
+# ============================
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
+# ============================
+# FastAPI アプリ本体
+# ============================
+
 app = FastAPI()
+
+# static フォルダを公開
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# モデル読み込み（Pipeline）
+# ============================
+# モデル読み込み
+# ============================
+
 model = joblib.load(BASE_DIR / "model.pkl")
 
-# 前処理部分と LightGBM 部分を分離
-preprocess = model.named_steps["preprocess"]
-regressor = model.named_steps["regressor"]
+# ============================
+# JSON 読み込み（train_model.py で生成）
+# ============================
 
-# LightGBM の booster を SHAP に渡す
-explainer = shap.TreeExplainer(regressor.booster_)
-
-# 前処理後の列名（OneHotEncoder 展開後）
-feature_names_after = preprocess.get_feature_names_out()
-
-# JSON 読み込み
 with open(STATIC_DIR / "city_avg_price.json", encoding="utf-8") as f:
     city_avg_price = json.load(f)
 
@@ -37,6 +41,10 @@ with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
 
 with open(STATIC_DIR / "feature_columns.json", encoding="utf-8") as f:
     feature_columns = json.load(f)
+
+# ============================
+# 入力データ形式
+# ============================
 
 class PredictRequest(BaseModel):
     市区町村名: str
@@ -49,14 +57,19 @@ class PredictRequest(BaseModel):
     容積率: float
     用途: str
 
-@app.post("/predict_with_shap")
-def predict_with_shap(req: PredictRequest):
+# ============================
+# 推定 API
+# ============================
 
+@app.post("/predict")
+def predict(req: PredictRequest):
+
+    # train_model.py と同じ特徴量を生成
     city_avg = city_avg_price.get(req.市区町村名, 0)
     district_avg = district_avg_price.get(req.地区名, 0)
 
     data = {
-        "都道府県名": "東京都",
+        "都道府県名": "東京都",  # ← 学習データが東京都のみなので固定
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
         "面積": req.面積,
@@ -72,34 +85,17 @@ def predict_with_shap(req: PredictRequest):
         "地区平均価格_log": np.log1p(district_avg)
     }
 
-    # 列順を揃える
+    # ============================
+    # 列順を学習時と完全一致させる（警告ゼロ・マイナス予測ゼロの核心）
+    # ============================
+
     row = {col: data.get(col, np.nan) for col in feature_columns}
     df = pd.DataFrame([row], columns=feature_columns)
 
-    # 前処理（OneHotEncoder → 数百次元）
-    X_trans = preprocess.transform(df)
+    # 推定
+    pred = model.predict(df)[0]
 
-    # 予測
-    pred = regressor.predict(X_trans)[0]
+    # マイナス予測は 0 に補正（安全策）
     pred = max(pred, 0)
 
-    # SHAP 計算
-    shap_values = explainer.shap_values(X_trans)[0]
-
-    # csr_matrix → dense に変換
-    if isinstance(shap_values, csr_matrix):
-        shap_values = shap_values.toarray().flatten()
-
-    # 上位20個だけ返す
-    top_idx = np.argsort(np.abs(shap_values))[::-1][:20]
-
-    # 日本語の特徴量名で返す
-    shap_dict = {
-        feature_names_after[i]: float(shap_values[i])
-        for i in top_idx
-    }
-
-    return {
-        "predicted_price": int(pred),
-        "shap_values": shap_dict
-    }
+    return {"predicted_price": int(pred)}
