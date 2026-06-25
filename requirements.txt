@@ -4,3 +4,4 @@ pandas
 duckdb
 scikit-learn
 httpx
+lightgbm
