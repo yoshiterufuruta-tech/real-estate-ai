@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>不動産価格 AI 推定</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
   <style>
     body {
       font-family: "Hiragino Sans", "メイリオ", sans-serif;
@@ -82,7 +81,7 @@
 </head>
 
 <body>
-  <header>不動産価格AI 推定</header>
+  <header>不動産価格 AI 推定</header>
 
   <div class="container">
 
@@ -184,7 +183,14 @@
 
     document.getElementById("btnPredict").addEventListener("click", predict);
 
-    loadCities().then(loadDistricts);
+    // ★ 修正版：JSON 読み込み完了後に初期化
+    async function init() {
+      await loadCities();
+      await loadDistricts();
+      document.getElementById("city").dispatchEvent(new Event("change"));
+    }
+
+    init();
   </script>
 
 </body>
