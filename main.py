@@ -60,6 +60,9 @@ def predict(req: PredictRequest):
         "地区平均価格_log": np.log1p(district_avg)
     }])
     
+    raw["駅距離_log"] = np.log1p(raw["駅距離"])
+    raw["面積_sqrt"] = np.sqrt(raw["面積"])
+    
     X = preprocess.transform(raw)
 
     pred = regressor.predict(X)[0]
