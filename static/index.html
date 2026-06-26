@@ -289,7 +289,9 @@ async function predictPrice() {
         "道路幅": parseFloat(document.getElementById("road").value),
         "建ぺい率": parseFloat(document.getElementById("kenpei").value),
         "容積率": parseFloat(document.getElementById("yoseki").value),
-        "用途": document.getElementById("use").value
+        "用途": document.getElementById("use").value,
+        "間取り": document.getElementById("madori").value
+
     };
 
     const res = await fetch("/predict", {
