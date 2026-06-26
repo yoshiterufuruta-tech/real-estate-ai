@@ -164,6 +164,16 @@
         <option value="事務所">事務所</option>
     </select>
 
+    <label>建物の構造</label>
+        <select id="structure">
+            <option value="木造">木造</option>
+            <option value="鉄骨造">鉄骨造</option>
+            <option value="RC">RC</option>
+            <option value="SRC">SRC</option>
+            <option value="軽量鉄骨造">軽量鉄骨造</option>
+            <option value="その他">その他</option>
+        </select>
+
     <label>前面道路：種類</label>
         <select id="road_type">
             <option value="公道">公道</option>
@@ -288,6 +298,7 @@ async function predictPrice() {
         "道路種類": document.getElementById("road_type").value,
         "建ぺい率": parseFloat(document.getElementById("kenpei").value),
         "容積率": parseFloat(document.getElementById("yoseki").value),
+        "構造": document.getElementById("structure").value,
         "用途": document.getElementById("use").value
     };
 
