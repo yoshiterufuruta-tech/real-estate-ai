@@ -54,6 +54,7 @@ def predict(req: PredictRequest):
         "建ぺい率": req.建ぺい率,
         "容積率": req.容積率,
         "用途": req.用途,
+        "間取り": req.間取り,
         "市区町村平均価格": city_avg,
         "地区平均価格": district_avg,
         "市区町村平均価格_log": np.log1p(city_avg),
