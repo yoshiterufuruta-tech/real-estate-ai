@@ -33,6 +33,7 @@ class PredictRequest(BaseModel):
     築年数: float
     駅距離: float
     道路幅: float
+    道路種類: str
     建ぺい率: float
     容積率: float
     用途: str
@@ -52,6 +53,7 @@ def predict(req: PredictRequest):
         "築年数": req.築年数,
         "駅距離": req.駅距離,
         "道路幅": req.道路幅,
+        "道路種類": req.道路種類,
         "建ぺい率": req.建ぺい率,
         "容積率": req.容積率,
         "用途": req.用途,
