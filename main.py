@@ -70,6 +70,7 @@ def predict(req: PredictRequest):
     X = preprocess.transform(raw)
 
     pred = regressor.predict(X)[0]
+    pred = pred * (122.1 / 119.2)
     pred = max(pred, 0)
 
     return {"predicted_price": int(pred)}
