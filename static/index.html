@@ -164,20 +164,6 @@
         <option value="事務所">事務所</option>
     </select>
 
-    <label>間取り</label>
-    <select id="madori">
-        <option value="1R">1R</option>
-        <option value="1K">1K</option>
-        <option value="1DK">1DK</option>
-        <option value="1LDK">1LDK</option>
-        <option value="2K">2K</option>
-        <option value="2DK">2DK</option>
-        <option value="2LDK">2LDK</option>
-        <option value="3DK">3DK</option>
-        <option value="3LDK">3LDK</option>
-        <option value="4LDK">4LDK</option>
-    </select>
-
     <label>面積（㎡）</label>
     <input id="area" type="number">
 
@@ -189,6 +175,18 @@
 
     <label>前面道路：幅員（m）</label>
     <input id="road" type="number">
+
+    <label>前面道路：種類</label>
+        <select id="road_type">
+            <option value="公道">公道</option>
+            <option value="私道">私道</option>
+            <option value="区道">区道</option>
+            <option value="都道">都道</option>
+            <option value="国道">国道</option>
+            <option value="市道">市道</option>
+            <option value="町道">町道</option>
+            <option value="その他">その他</option>
+        </select>
 
     <label>建ぺい率（％）</label>
     <input id="kenpei" type="number">
@@ -287,6 +285,7 @@ async function predictPrice() {
         "築年数": parseFloat(document.getElementById("age").value),
         "駅距離": parseFloat(document.getElementById("station").value),
         "道路幅": parseFloat(document.getElementById("road").value),
+        "道路種類": document.getElementById("road_type").value,
         "建ぺい率": parseFloat(document.getElementById("kenpei").value),
         "容積率": parseFloat(document.getElementById("yoseki").value),
         "用途": document.getElementById("use").value,
