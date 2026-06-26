@@ -17,116 +17,108 @@
     padding: 0;
     background: #f5f7fa;
     color: #333;
-}
-
-/* ヘッダー */
-header {
-    background: #1a2a4a;
-    color: white;
-    padding: 22px 16px;
-    text-align: center;
-    border-bottom: 3px solid #16233c;
-}
-
-header h1 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 700;
-}
-
-header p {
-    margin: 6px 0 0;
-    font-size: 14px;
-    opacity: 0.9;
-}
-
-/* メインコンテナ */
-.container {
-    max-width: 520px;
-    margin: 26px auto;
-    background: white;
-    padding: 28px;
-    border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-}
-
-/* ラベル */
-label {
-    display: block;
-    margin-top: 18px;
-    font-weight: 600;
-    font-size: 15px;
-    color: #444;
-}
-
-/* 入力欄 */
-input, select {
-    width: 100%;
-    padding: 12px;
-    margin-top: 6px;
-    border: 1px solid #d0d5dd;
-    border-radius: 8px;
-    font-size: 16px;
-    background: #fafafa;
-    transition: 0.15s;
-}
-
-input:focus, select:focus {
-    border-color: #1a2a4a;
-    background: #fff;
-    outline: none;
-}
-
-/* ボタン */
-button {
-    width: 100%;
-    margin-top: 30px;
-    padding: 15px;
-    background: #1a2a4a;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-button:hover {
-    background: #243a63;
-}
-
-/* 結果表示 */
-#result {
-    margin-top: 28px;
-    font-size: 26px;
-    font-weight: 700;
-    text-align: center;
-    color: #1a2a4a;
-}
-
-/* 地図 */
-#map {
-    width: 100%;
-    height: 360px;
-    margin-top: 30px;
-    border-radius: 10px;
-    border: 1px solid #e0e0e0;
-}
-
-/* スマホ最適化 */
-@media (max-width: 480px) {
-    .container {
-        margin: 14px;
-        padding: 22px;
     }
+    
+    header {
+        background: #1a2a4a;
+        color: white;
+        padding: 22px 16px;
+        text-align: center;
+        border-bottom: 3px solid #16233c;
+    }
+    
     header h1 {
-        font-size: 20px;
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
     }
+    
+    header p {
+        margin: 6px 0 0;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .container {
+        max-width: 520px;
+        margin: 26px auto;
+        background: white;
+        padding: 28px;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+    
+    label {
+        display: block;
+        margin-top: 18px;
+        font-weight: 600;
+        font-size: 15px;
+        color: #444;
+    }
+    
+    input, select {
+        width: 100%;
+        padding: 12px;
+        margin-top: 6px;
+        border: 1px solid #d0d5dd;
+        border-radius: 8px;
+        font-size: 16px;
+        background: #fafafa;
+        transition: 0.15s;
+    }
+    
+    input:focus, select:focus {
+        border-color: #1a2a4a;
+        background: #fff;
+        outline: none;
+    }
+    
     button {
-        font-size: 17px;
+        width: 100%;
+        margin-top: 30px;
+        padding: 15px;
+        background: #1a2a4a;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
     }
-}
+    
+    button:hover {
+        background: #243a63;
+    }
+    
+    #result {
+        margin-top: 28px;
+        font-size: 26px;
+        font-weight: 700;
+        text-align: center;
+        color: #1a2a4a;
+    }
+    
+    #map {
+        width: 100%;
+        height: 360px;
+        margin-top: 30px;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    @media (max-width: 480px) {
+        .container {
+            margin: 14px;
+            padding: 22px;
+        }
+        header h1 {
+            font-size: 20px;
+        }
+        button {
+            font-size: 17px;
+        }
+    }
 
     </style>
 </head>
@@ -136,6 +128,7 @@ button:hover {
     <h1>不動産価格推定AIモデル（東京都版）</h1>
     <p>前年度の不動産取引データを基に、AIが最新の推定価格を算出します。</p>
 </header>
+    
 <div class="container">
 
     <label>市区町村名</label>
@@ -173,20 +166,30 @@ button:hover {
 
     <div id="result"></div>
 
-    <!-- 地図 -->
     <div id="map"></div>
 
 </div>
 
 <script>
-// ===============================
-// 市区町村と地区のロード
-// ===============================
+    
 async function loadCities() {
     const res = await fetch("/static/cities.json");
-    const cities = await res.json();
+    let cities = await res.json();
+
+    const tokyo23 = [
+        "千代田区","中央区","港区","新宿区","文京区","台東区","墨田区","江東区",
+        "品川区","目黒区","大田区","世田谷区","渋谷区","中野区","杉並区","豊島区",
+        "北区","荒川区","板橋区","練馬区","足立区","葛飾区","江戸川区"
+    ];
+
+    const wards = cities.filter(c => tokyo23.includes(c));
+    const others = cities.filter(c => !tokyo23.includes(c));
+
+    cities = [...wards, ...others];
 
     const citySelect = document.getElementById("city");
+    citySelect.innerHTML = "";
+
     cities.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c;
@@ -215,21 +218,15 @@ async function loadDistricts() {
 
 document.getElementById("city").addEventListener("change", loadDistricts);
 
-// ===============================
-// MapLibre 初期化
-// ===============================
 let map = new maplibregl.Map({
     container: 'map',
     style: 'https://tiles.stadiamaps.com/styles/osm_bright.json',
-    center: [139.767, 35.681], // 東京駅
+    center: [139.767, 35.681], 
     zoom: 11
 });
 
 let marker = null;
-
-// ===============================
-// Nominatim で住所 → 緯度経度
-// ===============================
+    
 async function geocode(city, district) {
     const q = `${city} ${district}`;
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
@@ -245,9 +242,6 @@ async function geocode(city, district) {
     };
 }
 
-// ===============================
-// 推定API呼び出し + 地図移動
-// ===============================
 async function predictPrice() {
     const city = document.getElementById("city").value;
     const district = document.getElementById("district").value;
@@ -264,7 +258,6 @@ async function predictPrice() {
         "用途": document.getElementById("use").value
     };
 
-    // 予測
     const res = await fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -280,7 +273,6 @@ async function predictPrice() {
         document.getElementById("result").innerText = "推定に失敗しました";
     }
 
-    // 地図移動
     const pos = await geocode(city, district);
     if (pos) {
         map.flyTo({ center: [pos.lon, pos.lat], zoom: 15 });
@@ -290,7 +282,6 @@ async function predictPrice() {
     }
 }
 
-// 初期ロード
 loadCities();
 </script>
 
