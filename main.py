@@ -37,7 +37,8 @@ class PredictRequest(BaseModel):
     建ぺい率: float
     容積率: float
     用途: str
-
+    構造: str
+    
 @app.post("/predict")
 def predict(req: PredictRequest):
 
@@ -56,6 +57,7 @@ def predict(req: PredictRequest):
         "建ぺい率": req.建ぺい率,
         "容積率": req.容積率,
         "用途": req.用途,
+        "構造": req.構造,
         "市区町村平均価格": city_avg,
         "地区平均価格": district_avg,
         "市区町村平均価格_log": np.log1p(city_avg),
