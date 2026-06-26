@@ -156,6 +156,27 @@
 
     <label>地区名</label>
     <select id="district"></select>
+    
+    <label>用途</label>
+    <select id="use">
+        <option value="住宅">住宅</option>
+        <option value="店舗">店舗</option>
+        <option value="事務所">事務所</option>
+    </select>
+
+    <label>間取り</label>
+    <select id="madori">
+        <option value="1R">1R</option>
+        <option value="1K">1K</option>
+        <option value="1DK">1DK</option>
+        <option value="1LDK">1LDK</option>
+        <option value="2K">2K</option>
+        <option value="2DK">2DK</option>
+        <option value="2LDK">2LDK</option>
+        <option value="3DK">3DK</option>
+        <option value="3LDK">3LDK</option>
+        <option value="4LDK">4LDK</option>
+    </select>
 
     <label>面積（㎡）</label>
     <input id="area" type="number">
@@ -174,14 +195,7 @@
 
     <label>容積率（％）</label>
     <input id="yoseki" type="number">
-
-    <label>用途</label>
-    <select id="use">
-        <option value="住宅">住宅</option>
-        <option value="店舗">店舗</option>
-        <option value="事務所">事務所</option>
-    </select>
-
+    
     <button onclick="predictPrice()">推定する</button>
 
     <div id="result"></div>
