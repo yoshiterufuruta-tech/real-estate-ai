@@ -36,6 +36,7 @@ class PredictRequest(BaseModel):
     建ぺい率: float
     容積率: float
     用途: str
+    間取り: str 
 
 @app.post("/predict")
 def predict(req: PredictRequest):
