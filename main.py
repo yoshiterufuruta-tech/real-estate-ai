@@ -74,6 +74,10 @@ def predict(req: PredictRequest):
 
     pred = regressor.predict(X)[0]
     pred = pred * (122.1 / 119.2)
+    pred_list_price = pred * 1.20
     pred = max(pred, 0)
 
-    return {"predicted_price": int(pred)}
+    return {
+        "predicted_price": int(pred),
+        "predicted_list_price": int(pred_list_price)
+    }
