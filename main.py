@@ -30,7 +30,7 @@ class PredictRequest(BaseModel):
     市区町村名: str
     地区名: str
     面積: float
-    延床面積 float
+    延床面積: float
     築年数: float
     駅距離: float
     道路幅: float
