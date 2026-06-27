@@ -332,6 +332,8 @@ async function predictPrice() {
         Math.round(result.predicted_list_price / 10000);
 
         document.getElementById("result").style.display = "block";
+
+        document.getElementById("result-card").scrollIntoView({ behavior: "smooth" });
     } else {
         document.getElementById("result").innerText = "推定に失敗しました";
     }
