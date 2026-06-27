@@ -209,7 +209,11 @@
     
     <button onclick="predictPrice()">推定する</button>
 
-    <div id="result"></div>
+    <div id="result" style="margin-top: 20px; display:none;">
+        <h3>推定結果</h3>
+        <p><strong>推定成約価格（実勢価格）:</strong> <span id="predicted_price"></span> 万円</p>
+        <p><strong>推定売出価格（レインズ相当）:</strong> <span id="predicted_list_price"></span> 万円</p>
+    </div>
 
     <div id="map"></div>
 
