@@ -319,8 +319,13 @@ async function predictPrice() {
     const result = await res.json();
 
     if (result.predicted_price !== undefined) {
-        document.getElementById("result").innerText =
-            result.predicted_price.toLocaleString() + " 円";
+        document.getElementById("predicted_price").textContent =
+        Math.round(result.predicted_price / 10000);
+
+        document.getElementById("predicted_list_price").textContent =
+        Math.round(result.predicted_list_price / 10000);
+
+        document.getElementById("result").style.display = "block";
     } else {
         document.getElementById("result").innerText = "推定に失敗しました";
     }
