@@ -192,6 +192,9 @@
     <label>面積（㎡）</label>
     <input id="area" type="number">
 
+    <label>延床面積（㎡）</label>
+    <input id="floor_area" type="number">
+    
     <label>築年数</label>
     <input id="age" type="number">
 
@@ -292,6 +295,7 @@ async function predictPrice() {
         "市区町村名": city,
         "地区名": district,
         "面積": parseFloat(document.getElementById("area").value),
+        "延床面積": parseFloat(document.getElementById("floor_area").value),
         "築年数": parseFloat(document.getElementById("age").value),
         "駅距離": parseFloat(document.getElementById("station").value),
         "道路幅": parseFloat(document.getElementById("road").value),
