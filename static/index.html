@@ -209,22 +209,12 @@
     
     <button onclick="predictPrice()">推定する</button>
 
-    <div id="result-card" style="
-    margin-top: 28px;
-    padding: 22px;
-    border-radius: 12px;
-    background: #f0f4ff;
-    border: 1px solid #d6e0ff;
-    display:none;
-    text-align:center;
-    ">
+    <div id="result-card" style="margin-top: 28px; padding: 22px; border-radius: 12px; background: #f0f4ff; border: 1px solid #d6e0ff; display:none; text-align:center;">
         <h3 style="margin:0; color:#1a2a4a;">推定結果</h3>
-    
         <p style="font-size:22px; margin-top:14px;">
             <strong>成約価格（実勢）:</strong>
             <span id="predicted_price"></span> 万円
         </p>
-    
         <p style="font-size:22px; margin-top:6px;">
             <strong>売出価格（レインズ相当）:</strong>
             <span id="predicted_list_price"></span> 万円
