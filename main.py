@@ -27,6 +27,7 @@ with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
 feature_columns = preprocess.get_feature_names_out()
 
 class PredictRequest(BaseModel):
+    都県名: str
     市区町村名: str
     地区名: str
     面積: float
