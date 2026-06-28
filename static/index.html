@@ -256,8 +256,6 @@ async function loadCities() {
     loadDistricts();
 }
 
-document.getElementById("prefecture").addEventListener("change", loadCities);
-
 async function loadDistricts() {
     const city = document.getElementById("city").value;
     const res = await fetch("/static/city_to_districts.json");
@@ -274,6 +272,7 @@ async function loadDistricts() {
     });
 }
 
+document.getElementById("prefecture").addEventListener("change", loadCities);
 document.getElementById("city").addEventListener("change", loadDistricts);
 
 let map = new maplibregl.Map({
@@ -305,8 +304,9 @@ async function predictPrice() {
     const district = document.getElementById("district").value;
 
     const data = {
-        "市区町村名": city,
-        "地区名": district,
+        "都県名": document.getElementById("prefecture").value,
+        "市区町村名": document.getElementById("city").value,
+        "地区名": document.getElementById("district").value,
         "面積": parseFloat(document.getElementById("area").value),
         "延床面積": parseFloat(document.getElementById("floor_area").value),
         "築年数": parseFloat(document.getElementById("age").value),
@@ -343,7 +343,7 @@ async function predictPrice() {
         
     }
 
-    const pos = await geocode(city, district);
+    const pos = await geocode(data["市区町村名"], data["地区名"]);
     if (pos) {
         map.flyTo({ center: [pos.lon, pos.lat], zoom: 15 });
 
