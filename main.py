@@ -27,7 +27,7 @@ with open(STATIC_DIR / "district_avg_price.json", encoding="utf-8") as f:
 feature_columns = preprocess.get_feature_names_out()
 
 class PredictRequest(BaseModel):
-    都県名: str
+    都道府県名: str
     市区町村名: str
     地区名: str
     面積: float
@@ -48,7 +48,7 @@ def predict(req: PredictRequest):
     district_avg = district_avg_price.get(req.地区名, 0)
 
     raw = pd.DataFrame([{
-        "都県名": req.都県名,
+        "都道府県名": req.都道府県名,
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
         "面積": req.面積,
