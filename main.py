@@ -47,7 +47,7 @@ def predict(req: PredictRequest):
     district_avg = district_avg_price.get(req.地区名, 0)
 
     raw = pd.DataFrame([{
-        "都道府県名": "東京都",  # ← 学習データが東京都のみなので固定
+        "都県名": req.都県名,
         "市区町村名": req.市区町村名,
         "地区名": req.地区名,
         "面積": req.面積,
